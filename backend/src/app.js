@@ -3,6 +3,8 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 
+const healthRoutes = require("./routes/health.routes");
+
 const app = express();
 
 // Middleware
@@ -11,14 +13,7 @@ app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());
 
-// Health Check Route
-app.get("/api/health", (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: "CloudWatchX Backend is running successfully 🚀",
-        version: "1.0.0",
-        timestamp: new Date().toISOString()
-    });
-});
+// Routes
+app.use("/api/health", healthRoutes);
 
 module.exports = app;
