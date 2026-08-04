@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const connectDB = async () => {
     try {
         const conn = await mongoose.connect(process.env.MONGODB_URI);
-
+        console.log("Current Database:", mongoose.connection.name);
         console.log("=================================");
         console.log(" MongoDB Atlas Connected");
         console.log(` Database Host: ${conn.connection.host}`);
