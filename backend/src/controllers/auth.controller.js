@@ -11,11 +11,15 @@ const login = async (req, res) => {
             message: "Login Successful",
             data: result,
         });
+
     } catch (error) {
+
         res.status(401).json({
             success: false,
             message: error.message,
+            data: null,
         });
+
     }
 };
 

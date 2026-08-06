@@ -4,7 +4,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 
 const healthRoutes = require("./routes/health.routes");
-
+const endpointRoutes = require("./routes/endpoint.routes");
 const app = express();
 const authRoutes = require("./routes/auth.routes");
 // Middleware
@@ -16,4 +16,5 @@ app.use(express.json());
 // Routes
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/endpoints", endpointRoutes);
 module.exports = app;
