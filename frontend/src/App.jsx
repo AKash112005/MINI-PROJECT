@@ -196,7 +196,6 @@ function App() {
 
 
       // ========================================
-      // IMPORTANT:
       // Clear old server metrics
       // ========================================
 
@@ -265,6 +264,30 @@ function App() {
       }
 
 
+      // ========================================
+      // UPDATE SELECTED SERVER STATUS
+      // ========================================
+
+      if (selectedEndpoint) {
+
+        const updatedSelectedEndpoint =
+          endpointData.find(
+            (endpoint) =>
+              endpoint._id ===
+              selectedEndpoint._id
+          );
+
+        if (updatedSelectedEndpoint) {
+
+          setSelectedEndpoint(
+            updatedSelectedEndpoint
+          );
+
+        }
+
+      }
+
+
     } catch (err) {
 
       console.error(
@@ -284,12 +307,26 @@ function App() {
 
 
   // ==========================================
-  // INITIAL LOAD
+  // INITIAL LOAD + ENDPOINT STATUS REFRESH
   // ==========================================
 
   useEffect(() => {
 
     fetchEndpoints();
+
+    const endpointInterval =
+      setInterval(() => {
+
+        fetchEndpoints();
+
+      }, 30000);
+
+
+    return () => {
+
+      clearInterval(endpointInterval);
+
+    };
 
   }, []);
 
@@ -320,6 +357,10 @@ function App() {
       selectedEndpoint.serverName
     );
 
+
+    // ========================================
+    // Refresh metrics every 10 seconds
+    // ========================================
 
     const interval =
       setInterval(
@@ -1570,6 +1611,7 @@ function App() {
           </div>
 
         </section>
+
 
       </main>
 
