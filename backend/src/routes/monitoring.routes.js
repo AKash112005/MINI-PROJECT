@@ -1,11 +1,16 @@
 const express = require("express");
+
 const router = express.Router();
 
 const authMiddleware = require("../middleware/auth.middleware");
+
 const monitoringController = require("../controllers/monitoring.controller");
 
 
+// ==========================================
 // CPU Monitoring
+// ==========================================
+
 router.get(
     "/cpu",
     authMiddleware,
@@ -13,7 +18,10 @@ router.get(
 );
 
 
+// ==========================================
 // Memory Monitoring
+// ==========================================
+
 router.get(
     "/memory",
     authMiddleware,
@@ -21,32 +29,52 @@ router.get(
 );
 
 
+// ==========================================
 // Disk Monitoring
+// ==========================================
+
 router.get(
     "/disk",
     authMiddleware,
     monitoringController.getDiskUsage
 );
 
-//Network Monitoring
+
+// ==========================================
+// Network Monitoring
+// ==========================================
+
 router.get(
     "/network",
     authMiddleware,
     monitoringController.getNetworkUsage
 );
-//Uptime Monitoring
+
+
+// ==========================================
+// Uptime Monitoring
+// ==========================================
+
 router.get(
     "/uptime",
     authMiddleware,
     monitoringController.getUptime
 );
 
-//Monitoring Summary
+
+// ==========================================
+// Monitoring Summary
+// ==========================================
+
 router.get(
     "/summary",
     authMiddleware,
     monitoringController.getMonitoringSummary
 );
 
+
+// ==========================================
+// Export Router
+// ==========================================
 
 module.exports = router;

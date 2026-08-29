@@ -18,11 +18,16 @@ const ENDPOINTS_URL =
   "http://localhost:5000/api/endpoints";
 
 
+// ==========================================
+// Health Status
+// ==========================================
+
 const getHealthStatus = (
   value,
   warning,
   critical
 ) => {
+
   if (value >= critical) {
     return {
       label: "CRITICAL",
@@ -60,13 +65,13 @@ function App() {
   const [error, setError] = useState("");
 
 
-  /*
-   * ==========================================
-   * FETCH MONITORING METRICS
-   * ==========================================
-   */
+  // ==========================================
+  // FETCH MONITORING METRICS
+  // ==========================================
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = async (
+    serverOverride = null
+  ) => {
 
     try {
 
@@ -75,20 +80,71 @@ function App() {
       const token =
         localStorage.getItem("token");
 
+      const server =
+        serverOverride ||
+        selectedEndpoint?.serverName;
+
+      if (!server) {
+
+        setMetrics(null);
+
+        setError(
+          "Please select a monitoring server."
+        );
+
+        setLoading(false);
+
+        return;
+      }
+
+
       const response = await axios.get(
         API_URL,
         {
+          params: {
+            server,
+          },
+
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization:
+              `Bearer ${token}`,
           },
         }
       );
 
+
       const data =
         response.data.data;
 
+
+      // ========================================
+      // Validate API response
+      // ========================================
+
+      if (!data) {
+
+        setMetrics(null);
+
+        setHistory([]);
+
+        setError(
+          `Monitoring data is unavailable for server: ${server}`
+        );
+
+        return;
+      }
+
+
+      // ========================================
+      // SET METRICS
+      // ========================================
+
       setMetrics(data);
 
+
+      // ========================================
+      // HISTORY RECORD
+      // ========================================
 
       const historyRecord = {
 
@@ -106,13 +162,14 @@ function App() {
 
         receive:
           Number(
-            data.network.receive
+            data.network?.receive || 0
           ),
 
         send:
           Number(
-            data.network.send
+            data.network?.send || 0
           ),
+
       };
 
 
@@ -129,12 +186,24 @@ function App() {
         }
       );
 
+
     } catch (err) {
 
       console.error(
         "Monitoring API Error:",
         err
       );
+
+
+      // ========================================
+      // IMPORTANT:
+      // Clear old server metrics
+      // ========================================
+
+      setMetrics(null);
+
+      setHistory([]);
+
 
       setError(
         err.response?.data?.message ||
@@ -150,11 +219,9 @@ function App() {
   };
 
 
-  /*
-   * ==========================================
-   * FETCH ENDPOINTS
-   * ==========================================
-   */
+  // ==========================================
+  // FETCH ENDPOINTS
+  // ==========================================
 
   const fetchEndpoints = async () => {
 
@@ -163,25 +230,28 @@ function App() {
       const token =
         localStorage.getItem("token");
 
+
       const response = await axios.get(
         ENDPOINTS_URL,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization:
+              `Bearer ${token}`,
           },
         }
       );
 
+
       const endpointData =
         response.data.data || [];
+
 
       setEndpoints(endpointData);
 
 
-      /*
-       * Automatically select the first
-       * endpoint if none is selected.
-       */
+      // ========================================
+      // AUTOMATICALLY SELECT FIRST SERVER
+      // ========================================
 
       if (
         endpointData.length > 0 &&
@@ -194,6 +264,7 @@ function App() {
 
       }
 
+
     } catch (err) {
 
       console.error(
@@ -203,27 +274,62 @@ function App() {
 
       setEndpoints([]);
 
+      setError(
+        "Unable to load monitoring endpoints."
+      );
+
     }
 
   };
 
 
-  /*
-   * ==========================================
-   * INITIAL LOAD
-   * ==========================================
-   */
+  // ==========================================
+  // INITIAL LOAD
+  // ==========================================
 
   useEffect(() => {
 
-    fetchMetrics();
-
     fetchEndpoints();
+
+  }, []);
+
+
+  // ==========================================
+  // FETCH METRICS WHEN SERVER IS SELECTED
+  // ==========================================
+
+  useEffect(() => {
+
+    if (!selectedEndpoint) {
+      return;
+    }
+
+
+    // ========================================
+    // Clear previous server history
+    // ========================================
+
+    setHistory([]);
+
+    setMetrics(null);
+
+    setError("");
+
+
+    fetchMetrics(
+      selectedEndpoint.serverName
+    );
 
 
     const interval =
       setInterval(
-        fetchMetrics,
+        () => {
+
+          fetchMetrics(
+            selectedEndpoint.serverName
+          );
+
+        },
         10000
       );
 
@@ -231,14 +337,12 @@ function App() {
     return () =>
       clearInterval(interval);
 
-  }, []);
+  }, [selectedEndpoint]);
 
 
-  /*
-   * ==========================================
-   * LOADING
-   * ==========================================
-   */
+  // ==========================================
+  // LOADING
+  // ==========================================
 
   if (loading) {
 
@@ -259,91 +363,52 @@ function App() {
   }
 
 
-  /*
-   * ==========================================
-   * ERROR
-   * ==========================================
-   */
-
-  if (error) {
-
-    return (
-
-      <div className="app">
-
-        <div className="dashboard">
-
-          <h1>
-            CloudWatchX
-          </h1>
-
-          <div className="error-card">
-
-            <h2>
-              Unable to Load Monitoring Data
-            </h2>
-
-            <p>
-              {error}
-            </p>
-
-            <button
-              onClick={fetchMetrics}
-            >
-              Retry
-            </button>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    );
-
-  }
-
-
-  /*
-   * ==========================================
-   * HEALTH STATUS
-   * ==========================================
-   */
+  // ==========================================
+  // HEALTH STATUS
+  // ==========================================
 
   const cpuStatus =
-    getHealthStatus(
-      metrics.cpu,
-      70,
-      85
-    );
+    metrics
+      ? getHealthStatus(
+          metrics.cpu,
+          70,
+          85
+        )
+      : null;
+
 
   const memoryStatus =
-    getHealthStatus(
-      metrics.memory,
-      75,
-      85
-    );
+    metrics
+      ? getHealthStatus(
+          metrics.memory,
+          75,
+          85
+        )
+      : null;
+
 
   const diskStatus =
-    getHealthStatus(
-      metrics.disk,
-      80,
-      90
-    );
+    metrics
+      ? getHealthStatus(
+          metrics.disk,
+          80,
+          90
+        )
+      : null;
 
 
-  /*
-   * ==========================================
-   * DASHBOARD
-   * ==========================================
-   */
+  // ==========================================
+  // DASHBOARD
+  // ==========================================
 
   return (
 
     <div className="app">
 
 
-      {/* HEADER */}
+      {/* =====================================
+          HEADER
+      ====================================== */}
 
       <header className="header">
 
@@ -376,16 +441,71 @@ function App() {
       <main className="dashboard">
 
 
-        {/* SYSTEM OVERVIEW */}
+        {/* =====================================
+            MONITORING ERROR
+        ====================================== */}
+
+        {error && (
+
+          <div className="monitoring-error">
+
+            <div>
+
+              <strong>
+                Monitoring data unavailable
+              </strong>
+
+              <p>
+                {error}
+              </p>
+
+            </div>
+
+
+            <button
+              onClick={() =>
+                fetchMetrics()
+              }
+            >
+              Retry
+            </button>
+
+          </div>
+
+        )}
+
+
+        {/* =====================================
+            SYSTEM OVERVIEW
+        ====================================== */}
 
         <div className="section-title">
 
-          <h2>
-            System Overview
-          </h2>
+          <div>
+
+            <h2>
+              System Overview
+            </h2>
+
+            {selectedEndpoint && (
+
+              <p>
+                Monitoring:
+                {" "}
+                <strong>
+                  {selectedEndpoint.serverName}
+                </strong>
+              </p>
+
+            )}
+
+          </div>
+
 
           <button
-            onClick={fetchMetrics}
+            onClick={() =>
+              fetchMetrics()
+            }
           >
             Refresh
           </button>
@@ -393,12 +513,16 @@ function App() {
         </div>
 
 
-        {/* METRIC CARDS */}
+        {/* =====================================
+            METRIC CARDS
+        ====================================== */}
 
         <div className="metrics-grid">
 
 
-          {/* CPU */}
+          {/* ===================================
+              CPU
+          =================================== */}
 
           <div className="metric-card">
 
@@ -414,38 +538,56 @@ function App() {
 
             </div>
 
+
             <div className="metric-value">
 
-              {Number(
-                metrics.cpu
-              ).toFixed(2)}
-              %
+              {metrics
+                ? `${Number(
+                    metrics.cpu
+                  ).toFixed(2)}%`
+                : "--"}
 
             </div>
+
 
             <div className="progress">
 
               <div
-                className={`progress-bar ${cpuStatus.className}`}
+                className={`progress-bar ${
+                  cpuStatus?.className || ""
+                }`}
                 style={{
-                  width: `${Math.min(
-                    metrics.cpu,
-                    100
-                  )}%`,
+                  width:
+                    `${Math.min(
+                      metrics?.cpu || 0,
+                      100
+                    )}%`,
                 }}
               ></div>
 
             </div>
 
+
             <div className="metric-status">
 
-              <span
-                className={`health-badge ${cpuStatus.className}`}
-              >
-                {cpuStatus.label}
-              </span>
+              {cpuStatus ? (
+
+                <span
+                  className={`health-badge ${cpuStatus.className}`}
+                >
+                  {cpuStatus.label}
+                </span>
+
+              ) : (
+
+                <span className="health-badge warning">
+                  UNAVAILABLE
+                </span>
+
+              )}
 
             </div>
+
 
             <p>
               Processor utilization
@@ -454,7 +596,9 @@ function App() {
           </div>
 
 
-          {/* MEMORY */}
+          {/* ===================================
+              MEMORY
+          =================================== */}
 
           <div className="metric-card">
 
@@ -470,38 +614,56 @@ function App() {
 
             </div>
 
+
             <div className="metric-value">
 
-              {Number(
-                metrics.memory
-              ).toFixed(2)}
-              %
+              {metrics
+                ? `${Number(
+                    metrics.memory
+                  ).toFixed(2)}%`
+                : "--"}
 
             </div>
+
 
             <div className="progress">
 
               <div
-                className={`progress-bar ${memoryStatus.className}`}
+                className={`progress-bar ${
+                  memoryStatus?.className || ""
+                }`}
                 style={{
-                  width: `${Math.min(
-                    metrics.memory,
-                    100
-                  )}%`,
+                  width:
+                    `${Math.min(
+                      metrics?.memory || 0,
+                      100
+                    )}%`,
                 }}
               ></div>
 
             </div>
 
+
             <div className="metric-status">
 
-              <span
-                className={`health-badge ${memoryStatus.className}`}
-              >
-                {memoryStatus.label}
-              </span>
+              {memoryStatus ? (
+
+                <span
+                  className={`health-badge ${memoryStatus.className}`}
+                >
+                  {memoryStatus.label}
+                </span>
+
+              ) : (
+
+                <span className="health-badge warning">
+                  UNAVAILABLE
+                </span>
+
+              )}
 
             </div>
+
 
             <p>
               Physical memory utilization
@@ -510,7 +672,9 @@ function App() {
           </div>
 
 
-          {/* DISK */}
+          {/* ===================================
+              DISK
+          =================================== */}
 
           <div className="metric-card">
 
@@ -526,38 +690,56 @@ function App() {
 
             </div>
 
+
             <div className="metric-value">
 
-              {Number(
-                metrics.disk
-              ).toFixed(2)}
-              %
+              {metrics
+                ? `${Number(
+                    metrics.disk
+                  ).toFixed(2)}%`
+                : "--"}
 
             </div>
+
 
             <div className="progress">
 
               <div
-                className={`progress-bar ${diskStatus.className}`}
+                className={`progress-bar ${
+                  diskStatus?.className || ""
+                }`}
                 style={{
-                  width: `${Math.min(
-                    metrics.disk,
-                    100
-                  )}%`,
+                  width:
+                    `${Math.min(
+                      metrics?.disk || 0,
+                      100
+                    )}%`,
                 }}
               ></div>
 
             </div>
 
+
             <div className="metric-status">
 
-              <span
-                className={`health-badge ${diskStatus.className}`}
-              >
-                {diskStatus.label}
-              </span>
+              {diskStatus ? (
+
+                <span
+                  className={`health-badge ${diskStatus.className}`}
+                >
+                  {diskStatus.label}
+                </span>
+
+              ) : (
+
+                <span className="health-badge warning">
+                  UNAVAILABLE
+                </span>
+
+              )}
 
             </div>
+
 
             <p>
               C: drive utilization
@@ -566,7 +748,9 @@ function App() {
           </div>
 
 
-          {/* UPTIME */}
+          {/* ===================================
+              UPTIME
+          =================================== */}
 
           <div className="metric-card">
 
@@ -582,21 +766,34 @@ function App() {
 
             </div>
 
+
             <div className="uptime-value">
 
-              {metrics.uptime.days}d{" "}
-              {metrics.uptime.hours}h{" "}
-              {metrics.uptime.minutes}m
+              {metrics?.uptime
+                ? `${metrics.uptime.days}d ${metrics.uptime.hours}h ${metrics.uptime.minutes}m`
+                : "--"}
 
             </div>
+
 
             <div className="metric-status">
 
-              <span className="health-badge normal">
-                ONLINE
-              </span>
+              {metrics ? (
+
+                <span className="health-badge normal">
+                  ONLINE
+                </span>
+
+              ) : (
+
+                <span className="health-badge warning">
+                  UNAVAILABLE
+                </span>
+
+              )}
 
             </div>
+
 
             <p>
               Current system uptime
@@ -607,7 +804,9 @@ function App() {
         </div>
 
 
-        {/* NETWORK */}
+        {/* =====================================
+            NETWORK
+        ====================================== */}
 
         <section className="network-card">
 
@@ -620,18 +819,28 @@ function App() {
               </h2>
 
               <p>
-                {metrics.network.interface}
+                {metrics?.network?.interface ||
+                  "Network interface unavailable"}
               </p>
 
             </div>
 
+
             <span className="network-status">
-              ACTIVE
+
+              {metrics
+                ? "ACTIVE"
+                : "UNAVAILABLE"}
+
             </span>
 
           </div>
 
+
           <div className="network-grid">
+
+
+            {/* RECEIVE */}
 
             <div className="network-item">
 
@@ -641,18 +850,26 @@ function App() {
 
               <strong>
 
-                {Number(
-                  metrics.network.receive
-                ).toFixed(2)}
+                {metrics
+                  ? Number(
+                      metrics.network?.receive || 0
+                    ).toFixed(2)
+                  : "--"}
 
               </strong>
 
-              <small>
-                bytes/sec
-              </small>
+              {metrics && (
+
+                <small>
+                  bytes/sec
+                </small>
+
+              )}
 
             </div>
 
+
+            {/* SEND */}
 
             <div className="network-item">
 
@@ -662,15 +879,21 @@ function App() {
 
               <strong>
 
-                {Number(
-                  metrics.network.send
-                ).toFixed(2)}
+                {metrics
+                  ? Number(
+                      metrics.network?.send || 0
+                    ).toFixed(2)
+                  : "--"}
 
               </strong>
 
-              <small>
-                bytes/sec
-              </small>
+              {metrics && (
+
+                <small>
+                  bytes/sec
+                </small>
+
+              )}
 
             </div>
 
@@ -679,7 +902,9 @@ function App() {
         </section>
 
 
-        {/* MONITORING HISTORY */}
+        {/* =====================================
+            MONITORING HISTORY
+        ====================================== */}
 
         <section className="charts-section">
 
@@ -696,6 +921,7 @@ function App() {
               </p>
 
             </div>
+
 
             <span className="history-info">
               Last 5 minutes
@@ -960,7 +1186,10 @@ function App() {
                   </span>
 
                   <strong>
-                    {selectedEndpoint.operatingSystem || "N/A"}
+                    {
+                      selectedEndpoint.operatingSystem ||
+                      "N/A"
+                    }
                   </strong>
 
                 </div>
@@ -973,7 +1202,10 @@ function App() {
                   </span>
 
                   <strong>
-                    {selectedEndpoint.cloudProvider || "N/A"}
+                    {
+                      selectedEndpoint.cloudProvider ||
+                      "N/A"
+                    }
                   </strong>
 
                 </div>
@@ -986,7 +1218,10 @@ function App() {
                   </span>
 
                   <strong>
-                    {selectedEndpoint.region || "N/A"}
+                    {
+                      selectedEndpoint.region ||
+                      "N/A"
+                    }
                   </strong>
 
                 </div>
@@ -999,7 +1234,10 @@ function App() {
                   </span>
 
                   <strong>
-                    {selectedEndpoint.instanceType || "N/A"}
+                    {
+                      selectedEndpoint.instanceType ||
+                      "N/A"
+                    }
                   </strong>
 
                 </div>
@@ -1011,7 +1249,9 @@ function App() {
           ) : (
 
             <div className="no-servers">
+
               No server selected.
+
             </div>
 
           )}
@@ -1038,6 +1278,7 @@ function App() {
               </p>
 
             </div>
+
 
             <span className="server-count">
 
@@ -1204,7 +1445,7 @@ function App() {
                       </div>
 
 
-                      {/* SELECT SERVER BUTTON */}
+                      {/* SELECT SERVER */}
 
                       <button
                         className={`select-server-button ${
@@ -1212,9 +1453,13 @@ function App() {
                             ? "selected"
                             : ""
                         }`}
-                        onClick={() =>
-                          setSelectedEndpoint(server)
-                        }
+                        onClick={() => {
+
+                          setSelectedEndpoint(
+                            server
+                          );
+
+                        }}
                       >
 
                         {isSelected
@@ -1289,9 +1534,11 @@ function App() {
             </span>
 
             <strong>
-              {selectedEndpoint
-                ? selectedEndpoint.serverName
-                : "None"}
+              {
+                selectedEndpoint
+                  ? selectedEndpoint.serverName
+                  : "None"
+              }
             </strong>
 
           </div>
@@ -1329,6 +1576,7 @@ function App() {
     </div>
 
   );
+
 }
 
 
