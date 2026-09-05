@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+
 import {
   LineChart,
   Line,
@@ -9,7 +10,13 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+
 import "./App.css";
+
+
+// =====================================================
+// API CONFIGURATION
+// =====================================================
 
 const API_URL =
   "http://localhost:5000/api/monitoring/summary";
@@ -17,10 +24,16 @@ const API_URL =
 const ENDPOINTS_URL =
   "http://localhost:5000/api/endpoints";
 
+const ALERTS_URL =
+  "http://localhost:5000/api/alerts";
 
-// ==========================================
-// Health Status
-// ==========================================
+const HISTORY_URL =
+  "http://localhost:5000/api/monitoring-history";
+
+
+// =====================================================
+// HEALTH STATUS
+// =====================================================
 
 const getHealthStatus = (
   value,
@@ -49,25 +62,57 @@ const getHealthStatus = (
 };
 
 
+// =====================================================
+// FORMAT TIME
+// =====================================================
+
+const formatAlertTime = (date) => {
+
+  if (!date) {
+    return "Unknown time";
+  }
+
+  return new Date(date).toLocaleString();
+};
+
+
+// =====================================================
+// APPLICATION
+// =====================================================
+
 function App() {
 
-  const [metrics, setMetrics] = useState(null);
+  const [metrics, setMetrics] =
+    useState(null);
 
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] =
+    useState([]);
 
-  const [endpoints, setEndpoints] = useState([]);
+  const [endpoints, setEndpoints] =
+    useState([]);
 
   const [selectedEndpoint, setSelectedEndpoint] =
     useState(null);
 
-  const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts] =
+    useState([]);
 
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [lastUpdated, setLastUpdated] =
+    useState(null);
+
+  const [alertLoading, setAlertLoading] =
+    useState(false);
 
 
-  // ==========================================
+  // ===================================================
   // FETCH MONITORING METRICS
-  // ==========================================
+  // ===================================================
 
   const fetchMetrics = async (
     serverOverride = null
@@ -84,6 +129,7 @@ function App() {
         serverOverride ||
         selectedEndpoint?.serverName;
 
+
       if (!server) {
 
         setMetrics(null);
@@ -98,34 +144,29 @@ function App() {
       }
 
 
-      const response = await axios.get(
-        API_URL,
-        {
-          params: {
-            server,
-          },
+      const response =
+        await axios.get(
+          API_URL,
+          {
+            params: {
+              server,
+            },
 
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
-          },
-        }
-      );
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
 
 
       const data =
         response.data.data;
 
 
-      // ========================================
-      // Validate API response
-      // ========================================
-
       if (!data) {
 
         setMetrics(null);
-
-        setHistory([]);
 
         setError(
           `Monitoring data is unavailable for server: ${server}`
@@ -135,57 +176,20 @@ function App() {
       }
 
 
-      // ========================================
-      // SET METRICS
-      // ========================================
+      // -----------------------------------------------
+      // SET CURRENT METRICS
+      // -----------------------------------------------
 
       setMetrics(data);
 
 
-      // ========================================
-      // HISTORY RECORD
-      // ========================================
+      // -----------------------------------------------
+      // UPDATE TIME
+      // -----------------------------------------------
 
-      const historyRecord = {
-
-        time:
-          new Date().toLocaleTimeString(),
-
-        cpu:
-          Number(data.cpu),
-
-        memory:
-          Number(data.memory),
-
-        disk:
-          Number(data.disk),
-
-        receive:
-          Number(
-            data.network?.receive || 0
-          ),
-
-        send:
-          Number(
-            data.network?.send || 0
-          ),
-
-      };
-
-
-      setHistory(
-        (previousHistory) => {
-
-          const updatedHistory = [
-            ...previousHistory,
-            historyRecord,
-          ];
-
-          return updatedHistory.slice(-30);
-
-        }
+      setLastUpdated(
+        new Date()
       );
-
 
     } catch (err) {
 
@@ -195,19 +199,14 @@ function App() {
       );
 
 
-      // ========================================
-      // Clear old server metrics
-      // ========================================
-
       setMetrics(null);
-
-      setHistory([]);
 
 
       setError(
         err.response?.data?.message ||
         "Unable to fetch monitoring data."
       );
+
 
     } finally {
 
@@ -218,9 +217,117 @@ function App() {
   };
 
 
-  // ==========================================
+  // ===================================================
+  // FETCH PERSISTENT MONITORING HISTORY
+  // ===================================================
+
+  const fetchHistory = async (
+    serverOverride = null
+  ) => {
+
+    try {
+
+      const token =
+        localStorage.getItem("token");
+
+      const server =
+        serverOverride ||
+        selectedEndpoint?.serverName;
+
+
+      if (!server) {
+
+        setHistory([]);
+
+        return;
+
+      }
+
+
+      const response =
+        await axios.get(
+          HISTORY_URL,
+          {
+            params: {
+              server,
+            },
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+
+      const historyData =
+        response.data.data || [];
+
+
+      // -----------------------------------------------
+      // CONVERT MONGODB HISTORY TO CHART DATA
+      // -----------------------------------------------
+
+      const formattedHistory =
+        historyData.map(
+          (record) => ({
+
+            time:
+              record.recordedAt
+                ? new Date(
+                    record.recordedAt
+                  ).toLocaleTimeString()
+                : "--",
+
+            cpu:
+              Number(record.cpu || 0),
+
+            memory:
+              Number(record.memory || 0),
+
+            disk:
+              Number(record.disk || 0),
+
+            receive:
+              Number(
+                record.networkReceive || 0
+              ),
+
+            send:
+              Number(
+                record.networkSend || 0
+              ),
+
+          })
+        );
+
+
+      // -----------------------------------------------
+      // DISPLAY LATEST 30 RECORDS
+      // -----------------------------------------------
+
+      setHistory(
+        formattedHistory.slice(-30)
+      );
+
+
+    } catch (err) {
+
+      console.error(
+        "Monitoring History API Error:",
+        err
+      );
+
+      setHistory([]);
+
+    }
+
+  };
+
+
+  // ===================================================
   // FETCH ENDPOINTS
-  // ==========================================
+  // ===================================================
 
   const fetchEndpoints = async () => {
 
@@ -230,62 +337,70 @@ function App() {
         localStorage.getItem("token");
 
 
-      const response = await axios.get(
-        ENDPOINTS_URL,
-        {
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
-          },
-        }
-      );
+      const response =
+        await axios.get(
+          ENDPOINTS_URL,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
 
 
       const endpointData =
         response.data.data || [];
 
 
-      setEndpoints(endpointData);
+      setEndpoints(
+        endpointData
+      );
 
 
-      // ========================================
-      // AUTOMATICALLY SELECT FIRST SERVER
-      // ========================================
+      // -----------------------------------------------
+      // KEEP CURRENT SERVER SELECTED
+      // -----------------------------------------------
 
-      if (
-        endpointData.length > 0 &&
-        !selectedEndpoint
-      ) {
+      setSelectedEndpoint(
+        (currentSelected) => {
 
-        setSelectedEndpoint(
-          endpointData[0]
-        );
+          // If a server is already selected,
+          // check whether it still exists.
+          if (currentSelected) {
 
-      }
+            const stillExists =
+              endpointData.find(
+                (endpoint) =>
+                  endpoint._id ===
+                  currentSelected._id
+              );
 
 
-      // ========================================
-      // UPDATE SELECTED SERVER STATUS
-      // ========================================
+            if (stillExists) {
 
-      if (selectedEndpoint) {
+              return stillExists;
 
-        const updatedSelectedEndpoint =
-          endpointData.find(
-            (endpoint) =>
-              endpoint._id ===
-              selectedEndpoint._id
-          );
+            }
 
-        if (updatedSelectedEndpoint) {
+          }
 
-          setSelectedEndpoint(
-            updatedSelectedEndpoint
-          );
+
+          // If there is no selected server,
+          // select the first available endpoint.
+          if (
+            endpointData.length > 0
+          ) {
+
+            return endpointData[0];
+
+          }
+
+
+          return null;
 
         }
-
-      }
+      );
 
 
     } catch (err) {
@@ -306,34 +421,148 @@ function App() {
   };
 
 
-  // ==========================================
-  // INITIAL LOAD + ENDPOINT STATUS REFRESH
-  // ==========================================
+  // ===================================================
+  // FETCH ACTIVE ALERTS
+  // ===================================================
+
+  const fetchAlerts = async (
+    serverOverride = null
+  ) => {
+
+    try {
+
+      const token =
+        localStorage.getItem("token");
+
+      const server =
+        serverOverride ||
+        selectedEndpoint?.serverName;
+
+
+      if (!server) {
+
+        setAlerts([]);
+
+        return;
+
+      }
+
+
+      setAlertLoading(true);
+
+
+      const response =
+        await axios.get(
+          `${ALERTS_URL}/active`,
+          {
+            params: {
+              server,
+            },
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+
+      setAlerts(
+        response.data.data || []
+      );
+
+
+    } catch (err) {
+
+      console.error(
+        "Alert API Error:",
+        err
+      );
+
+      setAlerts([]);
+
+    } finally {
+
+      setAlertLoading(false);
+
+    }
+
+  };
+
+
+  // ===================================================
+  // RESOLVE ALERT
+  // ===================================================
+
+  const resolveAlert = async (
+    alertId
+  ) => {
+
+    try {
+
+      const token =
+        localStorage.getItem("token");
+
+
+      await axios.put(
+        `${ALERTS_URL}/${alertId}/resolve`,
+        {},
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        }
+      );
+
+
+      // Refresh alerts
+      fetchAlerts();
+
+
+    } catch (err) {
+
+      console.error(
+        "Resolve Alert Error:",
+        err
+      );
+
+    }
+
+  };
+
+
+  // ===================================================
+  // INITIAL LOAD + ENDPOINT REFRESH
+  // ===================================================
 
   useEffect(() => {
 
     fetchEndpoints();
 
+
     const endpointInterval =
-      setInterval(() => {
+      setInterval(
+        () => {
 
-        fetchEndpoints();
+          fetchEndpoints();
 
-      }, 30000);
+        },
+        30000
+      );
 
 
-    return () => {
-
-      clearInterval(endpointInterval);
-
-    };
+    return () =>
+      clearInterval(
+        endpointInterval
+      );
 
   }, []);
 
 
-  // ==========================================
-  // FETCH METRICS WHEN SERVER IS SELECTED
-  // ==========================================
+  // ===================================================
+  // SERVER SELECTION
+  // ===================================================
 
   useEffect(() => {
 
@@ -342,48 +571,98 @@ function App() {
     }
 
 
-    // ========================================
-    // Clear previous server history
-    // ========================================
-
+    // Clear previous server data
     setHistory([]);
 
     setMetrics(null);
 
+    setAlerts([]);
+
     setError("");
 
 
-    fetchMetrics(
-      selectedEndpoint.serverName
-    );
+    const server =
+      selectedEndpoint.serverName;
 
 
-    // ========================================
-    // Refresh metrics every 10 seconds
-    // ========================================
+    // -----------------------------------------------
+    // Initial data
+    // -----------------------------------------------
 
-    const interval =
+    fetchMetrics(server);
+
+    fetchHistory(server);
+
+    fetchAlerts(server);
+
+
+    // -----------------------------------------------
+    // Metrics refresh — 10 seconds
+    // -----------------------------------------------
+
+    const metricInterval =
       setInterval(
         () => {
 
-          fetchMetrics(
-            selectedEndpoint.serverName
-          );
+          fetchMetrics(server);
 
         },
         10000
       );
 
 
-    return () =>
-      clearInterval(interval);
+    // -----------------------------------------------
+    // Alerts refresh — 10 seconds
+    // -----------------------------------------------
+
+    const alertInterval =
+      setInterval(
+        () => {
+
+          fetchAlerts(server);
+
+        },
+        10000
+      );
+
+
+    // -----------------------------------------------
+    // History refresh — 10 seconds
+    // -----------------------------------------------
+
+    const historyInterval =
+      setInterval(
+        () => {
+
+          fetchHistory(server);
+
+        },
+        10000
+      );
+
+
+    return () => {
+
+      clearInterval(
+        metricInterval
+      );
+
+      clearInterval(
+        alertInterval
+      );
+
+      clearInterval(
+        historyInterval
+      );
+
+    };
 
   }, [selectedEndpoint]);
 
 
-  // ==========================================
+  // ===================================================
   // LOADING
-  // ==========================================
+  // ===================================================
 
   if (loading) {
 
@@ -393,7 +672,17 @@ function App() {
 
         <div className="loading">
 
-          Loading CloudWatchX Monitoring...
+          <div className="loading-logo">
+            CWX
+          </div>
+
+          <h2>
+            CloudWatchX
+          </h2>
+
+          <p>
+            Loading infrastructure monitoring...
+          </p>
 
         </div>
 
@@ -404,9 +693,9 @@ function App() {
   }
 
 
-  // ==========================================
+  // ===================================================
   // HEALTH STATUS
-  // ==========================================
+  // ===================================================
 
   const cpuStatus =
     metrics
@@ -438,41 +727,62 @@ function App() {
       : null;
 
 
-  // ==========================================
+  const onlineServers =
+    endpoints.filter(
+      (server) =>
+        String(
+          server.status || ""
+        ).toLowerCase() === "online"
+    ).length;
+
+
+  const offlineServers =
+    endpoints.length -
+    onlineServers;
+
+
+  // ===================================================
   // DASHBOARD
-  // ==========================================
+  // ===================================================
 
   return (
 
     <div className="app">
 
-
-      {/* =====================================
+      {/* =================================================
           HEADER
-      ====================================== */}
+      ================================================= */}
 
       <header className="header">
 
-        <div>
+        <div className="brand">
 
-          <h1>
-            CloudWatchX
-          </h1>
+          <div className="brand-logo">
+            CWX
+          </div>
 
-          <p>
-            Infrastructure Monitoring Dashboard
-          </p>
+          <div>
+
+            <h1>
+              CloudWatchX
+            </h1>
+
+            <p>
+              Infrastructure Monitoring Platform
+            </p>
+
+          </div>
 
         </div>
 
 
-        <div className="status">
+        <div className="header-live">
 
-          <span
-            className="status-dot"
-          ></span>
+          <span className="live-dot"></span>
 
-          System Monitoring Active
+          <span>
+            Monitoring Live
+          </span>
 
         </div>
 
@@ -482,9 +792,57 @@ function App() {
       <main className="dashboard">
 
 
-        {/* =====================================
-            MONITORING ERROR
-        ====================================== */}
+        {/* =================================================
+            TOP OVERVIEW
+        ================================================= */}
+
+        <section className="dashboard-intro">
+
+          <div>
+
+            <span className="eyebrow">
+              INFRASTRUCTURE OVERVIEW
+            </span>
+
+            <h2>
+              System Monitoring
+            </h2>
+
+            <p>
+              Real-time visibility into your
+              monitored infrastructure.
+            </p>
+
+          </div>
+
+
+          <div className="selected-server-pill">
+
+            <span className="pill-dot"></span>
+
+            <div>
+
+              <small>
+                MONITORING SERVER
+              </small>
+
+              <strong>
+                {
+                  selectedEndpoint?.serverName ||
+                  "No server selected"
+                }
+              </strong>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =================================================
+            ERROR
+        ================================================= */}
 
         {error && (
 
@@ -516,338 +874,486 @@ function App() {
         )}
 
 
-        {/* =====================================
-            SYSTEM OVERVIEW
-        ====================================== */}
+        {/* =================================================
+            METRIC CARDS
+        ================================================= */}
 
-        <div className="section-title">
+        <section>
 
-          <div>
+          <div className="section-heading">
 
-            <h2>
-              System Overview
-            </h2>
+            <div>
 
-            {selectedEndpoint && (
+              <span className="section-label">
+                RESOURCE HEALTH
+              </span>
+
+              <h2>
+                Current Performance
+              </h2>
+
+            </div>
+
+
+            <div className="last-updated">
+
+              <span></span>
+
+              Last updated:
+
+              {" "}
+
+              {lastUpdated
+                ? lastUpdated.toLocaleTimeString()
+                : "--"}
+
+            </div>
+
+          </div>
+
+
+          <div className="metrics-grid">
+
+
+            {/* CPU */}
+
+            <div className="metric-card">
+
+              <div className="metric-top">
+
+                <div>
+
+                  <span className="metric-label">
+                    CPU USAGE
+                  </span>
+
+                  <h3>
+                    Processor
+                  </h3>
+
+                </div>
+
+                <div className="metric-icon">
+                  CPU
+                </div>
+
+              </div>
+
+
+              <div className="metric-main">
+
+                <strong>
+
+                  {metrics
+                    ? `${Number(
+                        metrics.cpu
+                      ).toFixed(2)}%`
+                    : "--"}
+
+                </strong>
+
+                {cpuStatus && (
+
+                  <span
+                    className={`health-badge ${cpuStatus.className}`}
+                  >
+                    {cpuStatus.label}
+                  </span>
+
+                )}
+
+              </div>
+
+
+              <div className="progress">
+
+                <div
+                  className={`progress-bar ${
+                    cpuStatus?.className || ""
+                  }`}
+                  style={{
+                    width:
+                      `${Math.min(
+                        metrics?.cpu || 0,
+                        100
+                      )}%`,
+                  }}
+                ></div>
+
+              </div>
+
 
               <p>
-                Monitoring:
-                {" "}
-                <strong>
-                  {selectedEndpoint.serverName}
-                </strong>
+                Processor utilization
               </p>
 
-            )}
-
-          </div>
+            </div>
 
 
-          <button
-            onClick={() =>
-              fetchMetrics()
-            }
-          >
-            Refresh
-          </button>
+            {/* MEMORY */}
 
-        </div>
+            <div className="metric-card">
+
+              <div className="metric-top">
+
+                <div>
+
+                  <span className="metric-label">
+                    MEMORY USAGE
+                  </span>
+
+                  <h3>
+                    Physical Memory
+                  </h3>
+
+                </div>
+
+                <div className="metric-icon">
+                  RAM
+                </div>
+
+              </div>
 
 
-        {/* =====================================
-            METRIC CARDS
-        ====================================== */}
+              <div className="metric-main">
 
-        <div className="metrics-grid">
+                <strong>
+
+                  {metrics
+                    ? `${Number(
+                        metrics.memory
+                      ).toFixed(2)}%`
+                    : "--"}
+
+                </strong>
+
+                {memoryStatus && (
+
+                  <span
+                    className={`health-badge ${memoryStatus.className}`}
+                  >
+                    {memoryStatus.label}
+                  </span>
+
+                )}
+
+              </div>
 
 
-          {/* ===================================
-              CPU
-          =================================== */}
+              <div className="progress">
 
-          <div className="metric-card">
+                <div
+                  className={`progress-bar ${
+                    memoryStatus?.className || ""
+                  }`}
+                  style={{
+                    width:
+                      `${Math.min(
+                        metrics?.memory || 0,
+                        100
+                      )}%`,
+                  }}
+                ></div>
 
-            <div className="metric-header">
+              </div>
 
-              <span>
-                CPU Usage
-              </span>
 
-              <span className="metric-icon">
-                CPU
-              </span>
+              <p>
+                Physical memory utilization
+              </p>
 
             </div>
 
 
-            <div className="metric-value">
+            {/* DISK */}
 
-              {metrics
-                ? `${Number(
-                    metrics.cpu
-                  ).toFixed(2)}%`
-                : "--"}
+            <div className="metric-card">
 
-            </div>
+              <div className="metric-top">
 
+                <div>
 
-            <div className="progress">
+                  <span className="metric-label">
+                    DISK USAGE
+                  </span>
 
-              <div
-                className={`progress-bar ${
-                  cpuStatus?.className || ""
-                }`}
-                style={{
-                  width:
-                    `${Math.min(
-                      metrics?.cpu || 0,
-                      100
-                    )}%`,
-                }}
-              ></div>
+                  <h3>
+                    C: Drive
+                  </h3>
 
-            </div>
+                </div>
+
+                <div className="metric-icon">
+                  DISK
+                </div>
+
+              </div>
 
 
-            <div className="metric-status">
+              <div className="metric-main">
 
-              {cpuStatus ? (
+                <strong>
 
-                <span
-                  className={`health-badge ${cpuStatus.className}`}
-                >
-                  {cpuStatus.label}
-                </span>
+                  {metrics
+                    ? `${Number(
+                        metrics.disk
+                      ).toFixed(2)}%`
+                    : "--"}
 
-              ) : (
+                </strong>
 
-                <span className="health-badge warning">
-                  UNAVAILABLE
-                </span>
+                {diskStatus && (
 
-              )}
+                  <span
+                    className={`health-badge ${diskStatus.className}`}
+                  >
+                    {diskStatus.label}
+                  </span>
 
-            </div>
+                )}
 
-
-            <p>
-              Processor utilization
-            </p>
-
-          </div>
+              </div>
 
 
-          {/* ===================================
-              MEMORY
-          =================================== */}
+              <div className="progress">
 
-          <div className="metric-card">
+                <div
+                  className={`progress-bar ${
+                    diskStatus?.className || ""
+                  }`}
+                  style={{
+                    width:
+                      `${Math.min(
+                        metrics?.disk || 0,
+                        100
+                      )}%`,
+                  }}
+                ></div>
 
-            <div className="metric-header">
-
-              <span>
-                Memory Usage
-              </span>
-
-              <span className="metric-icon">
-                RAM
-              </span>
-
-            </div>
+              </div>
 
 
-            <div className="metric-value">
-
-              {metrics
-                ? `${Number(
-                    metrics.memory
-                  ).toFixed(2)}%`
-                : "--"}
+              <p>
+                Storage utilization
+              </p>
 
             </div>
 
 
-            <div className="progress">
+            {/* UPTIME */}
 
-              <div
-                className={`progress-bar ${
-                  memoryStatus?.className || ""
-                }`}
-                style={{
-                  width:
-                    `${Math.min(
-                      metrics?.memory || 0,
-                      100
-                    )}%`,
-                }}
-              ></div>
+            <div className="metric-card">
 
-            </div>
+              <div className="metric-top">
 
+                <div>
 
-            <div className="metric-status">
+                  <span className="metric-label">
+                    SYSTEM UPTIME
+                  </span>
 
-              {memoryStatus ? (
+                  <h3>
+                    Availability
+                  </h3>
 
-                <span
-                  className={`health-badge ${memoryStatus.className}`}
-                >
-                  {memoryStatus.label}
-                </span>
+                </div>
 
-              ) : (
+                <div className="metric-icon">
+                  UP
+                </div>
 
-                <span className="health-badge warning">
-                  UNAVAILABLE
-                </span>
-
-              )}
-
-            </div>
+              </div>
 
 
-            <p>
-              Physical memory utilization
-            </p>
+              <div className="uptime-value">
 
-          </div>
+                {metrics?.uptime
+                  ? `${metrics.uptime.days}d ${metrics.uptime.hours}h ${metrics.uptime.minutes}m`
+                  : "--"}
 
-
-          {/* ===================================
-              DISK
-          =================================== */}
-
-          <div className="metric-card">
-
-            <div className="metric-header">
-
-              <span>
-                Disk Usage
-              </span>
-
-              <span className="metric-icon">
-                DISK
-              </span>
-
-            </div>
+              </div>
 
 
-            <div className="metric-value">
-
-              {metrics
-                ? `${Number(
-                    metrics.disk
-                  ).toFixed(2)}%`
-                : "--"}
-
-            </div>
-
-
-            <div className="progress">
-
-              <div
-                className={`progress-bar ${
-                  diskStatus?.className || ""
-                }`}
-                style={{
-                  width:
-                    `${Math.min(
-                      metrics?.disk || 0,
-                      100
-                    )}%`,
-                }}
-              ></div>
-
-            </div>
-
-
-            <div className="metric-status">
-
-              {diskStatus ? (
-
-                <span
-                  className={`health-badge ${diskStatus.className}`}
-                >
-                  {diskStatus.label}
-                </span>
-
-              ) : (
-
-                <span className="health-badge warning">
-                  UNAVAILABLE
-                </span>
-
-              )}
-
-            </div>
-
-
-            <p>
-              C: drive utilization
-            </p>
-
-          </div>
-
-
-          {/* ===================================
-              UPTIME
-          =================================== */}
-
-          <div className="metric-card">
-
-            <div className="metric-header">
-
-              <span>
-                System Uptime
-              </span>
-
-              <span className="metric-icon">
-                UP
-              </span>
-
-            </div>
-
-
-            <div className="uptime-value">
-
-              {metrics?.uptime
-                ? `${metrics.uptime.days}d ${metrics.uptime.hours}h ${metrics.uptime.minutes}m`
-                : "--"}
-
-            </div>
-
-
-            <div className="metric-status">
-
-              {metrics ? (
+              <div className="metric-main">
 
                 <span className="health-badge normal">
                   ONLINE
                 </span>
 
-              ) : (
+              </div>
 
-                <span className="health-badge warning">
-                  UNAVAILABLE
-                </span>
 
-              )}
+              <p>
+                Current system uptime
+              </p>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =================================================
+            ALERTS
+        ================================================= */}
+
+        <section className="alerts-section">
+
+          <div className="section-heading">
+
+            <div>
+
+              <span className="section-label">
+                ATTENTION REQUIRED
+              </span>
+
+              <h2>
+                Active Alerts
+              </h2>
 
             </div>
 
 
-            <p>
-              Current system uptime
-            </p>
+            <div className="alert-count">
+
+              {alerts.length}
+
+              {" "}
+
+              {alerts.length === 1
+                ? "Active Alert"
+                : "Active Alerts"}
+
+            </div>
 
           </div>
 
-        </div>
+
+          {alertLoading ? (
+
+            <div className="alerts-empty">
+              Loading alerts...
+            </div>
+
+          ) : alerts.length === 0 ? (
+
+            <div className="alerts-empty success-alert">
+
+              <div className="success-icon">
+                ✓
+              </div>
+
+              <div>
+
+                <strong>
+                  No active alerts
+                </strong>
+
+                <p>
+                  All monitored resources are currently
+                  within acceptable thresholds.
+                </p>
+
+              </div>
+
+            </div>
+
+          ) : (
+
+            <div className="alerts-list">
+
+              {alerts.map(
+                (alert) => (
+
+                  <div
+                    className={`alert-card ${String(
+                      alert.severity || ""
+                    ).toLowerCase()}`}
+                    key={alert._id}
+                  >
+
+                    <div className="alert-severity">
+
+                      <span className="alert-indicator"></span>
+
+                      <strong>
+                        {alert.severity}
+                      </strong>
+
+                    </div>
 
 
-        {/* =====================================
+                    <div className="alert-content">
+
+                      <div className="alert-title-row">
+
+                        <h3>
+                          {alert.metric} Usage
+                        </h3>
+
+                        <strong className="alert-value">
+                          {Number(
+                            alert.value
+                          ).toFixed(2)}
+                          %
+                        </strong>
+
+                      </div>
+
+
+                      <p>
+                        {alert.message}
+                      </p>
+
+
+                      <div className="alert-meta">
+
+                        <span>
+                          Server:
+                          {" "}
+                          <strong>
+                            {alert.serverName}
+                          </strong>
+                        </span>
+
+                        <span>
+                          {formatAlertTime(
+                            alert.createdAt
+                          )}
+                        </span>
+
+                      </div>
+
+                    </div>
+
+
+                    <button
+                      className="resolve-button"
+                      onClick={() =>
+                        resolveAlert(
+                          alert._id
+                        )
+                      }
+                    >
+                      Resolve
+                    </button>
+
+                  </div>
+
+                )
+              )}
+
+            </div>
+
+          )}
+
+        </section>
+
+
+        {/* =================================================
             NETWORK
-        ====================================== */}
+        ================================================= */}
 
         <section className="network-card">
 
@@ -855,33 +1361,40 @@ function App() {
 
             <div>
 
+              <span className="section-label">
+                NETWORK
+              </span>
+
               <h2>
                 Network Traffic
               </h2>
 
               <p>
-                {metrics?.network?.interface ||
-                  "Network interface unavailable"}
+                {
+                  metrics?.network?.interface ||
+                  "Network interface unavailable"
+                }
               </p>
 
             </div>
 
 
-            <span className="network-status">
-
+            <span
+              className={`network-status ${
+                metrics
+                  ? "active"
+                  : "inactive"
+              }`}
+            >
               {metrics
                 ? "ACTIVE"
                 : "UNAVAILABLE"}
-
             </span>
 
           </div>
 
 
           <div className="network-grid">
-
-
-            {/* RECEIVE */}
 
             <div className="network-item">
 
@@ -899,18 +1412,12 @@ function App() {
 
               </strong>
 
-              {metrics && (
-
-                <small>
-                  bytes/sec
-                </small>
-
-              )}
+              <small>
+                bytes/sec
+              </small>
 
             </div>
 
-
-            {/* SEND */}
 
             <div className="network-item">
 
@@ -928,13 +1435,9 @@ function App() {
 
               </strong>
 
-              {metrics && (
-
-                <small>
-                  bytes/sec
-                </small>
-
-              )}
+              <small>
+                bytes/sec
+              </small>
 
             </div>
 
@@ -943,29 +1446,33 @@ function App() {
         </section>
 
 
-        {/* =====================================
-            MONITORING HISTORY
-        ====================================== */}
+        {/* =================================================
+            HISTORY
+        ================================================= */}
 
         <section className="charts-section">
 
-          <div className="charts-header">
+          <div className="section-heading">
 
             <div>
+
+              <span className="section-label">
+                PERFORMANCE TRENDS
+              </span>
 
               <h2>
                 Monitoring History
               </h2>
 
               <p>
-                Recent system resource usage
+                Persistent system resource performance
               </p>
 
             </div>
 
 
             <span className="history-info">
-              Last 5 minutes
+              Last {history.length} samples
             </span>
 
           </div>
@@ -975,13 +1482,26 @@ function App() {
 
           <div className="chart-card">
 
-            <h3>
-              CPU Usage
-            </h3>
+            <div className="chart-title">
+
+              <div>
+
+                <h3>
+                  CPU Usage
+                </h3>
+
+                <p>
+                  Processor utilization over time
+                </p>
+
+              </div>
+
+            </div>
+
 
             <ResponsiveContainer
               width="100%"
-              height={300}
+              height={280}
             >
 
               <LineChart
@@ -990,17 +1510,14 @@ function App() {
 
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="#263247"
                 />
 
                 <XAxis
                   dataKey="time"
-                  stroke="#8fa3bf"
                 />
 
                 <YAxis
                   domain={[0, 100]}
-                  stroke="#8fa3bf"
                 />
 
                 <Tooltip />
@@ -1024,13 +1541,26 @@ function App() {
 
           <div className="chart-card">
 
-            <h3>
-              Memory Usage
-            </h3>
+            <div className="chart-title">
+
+              <div>
+
+                <h3>
+                  Memory Usage
+                </h3>
+
+                <p>
+                  Physical memory utilization over time
+                </p>
+
+              </div>
+
+            </div>
+
 
             <ResponsiveContainer
               width="100%"
-              height={300}
+              height={280}
             >
 
               <LineChart
@@ -1039,17 +1569,14 @@ function App() {
 
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="#263247"
                 />
 
                 <XAxis
                   dataKey="time"
-                  stroke="#8fa3bf"
                 />
 
                 <YAxis
                   domain={[0, 100]}
-                  stroke="#8fa3bf"
                 />
 
                 <Tooltip />
@@ -1073,13 +1600,26 @@ function App() {
 
           <div className="chart-card">
 
-            <h3>
-              Disk Usage
-            </h3>
+            <div className="chart-title">
+
+              <div>
+
+                <h3>
+                  Disk Usage
+                </h3>
+
+                <p>
+                  C: drive utilization over time
+                </p>
+
+              </div>
+
+            </div>
+
 
             <ResponsiveContainer
               width="100%"
-              height={300}
+              height={280}
             >
 
               <LineChart
@@ -1088,17 +1628,14 @@ function App() {
 
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="#263247"
                 />
 
                 <XAxis
                   dataKey="time"
-                  stroke="#8fa3bf"
                 />
 
                 <YAxis
                   domain={[0, 100]}
-                  stroke="#8fa3bf"
                 />
 
                 <Tooltip />
@@ -1122,13 +1659,26 @@ function App() {
 
           <div className="chart-card">
 
-            <h3>
-              Network Traffic
-            </h3>
+            <div className="chart-title">
+
+              <div>
+
+                <h3>
+                  Network Traffic
+                </h3>
+
+                <p>
+                  Receive and send traffic
+                </p>
+
+              </div>
+
+            </div>
+
 
             <ResponsiveContainer
               width="100%"
-              height={300}
+              height={280}
             >
 
               <LineChart
@@ -1137,17 +1687,13 @@ function App() {
 
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="#263247"
                 />
 
                 <XAxis
                   dataKey="time"
-                  stroke="#8fa3bf"
                 />
 
-                <YAxis
-                  stroke="#8fa3bf"
-                />
+                <YAxis />
 
                 <Tooltip />
 
@@ -1178,42 +1724,268 @@ function App() {
         </section>
 
 
-        {/* =====================================
-            SELECTED SERVER
-        ====================================== */}
+        {/* =================================================
+            INFRASTRUCTURE
+        ================================================= */}
 
-        <section className="selected-server-section">
+        <section className="servers-section">
 
-          <div className="selected-server-header">
+          <div className="section-heading">
 
             <div>
 
+              <span className="section-label">
+                INFRASTRUCTURE
+              </span>
+
               <h2>
-                Selected Server
+                Monitored Servers
               </h2>
 
               <p>
-                Currently selected monitoring endpoint
+                Registered infrastructure endpoints
               </p>
+
+            </div>
+
+
+            <div className="server-summary">
+
+              <span>
+                <i className="online-dot"></i>
+                {onlineServers} Online
+              </span>
+
+              <span>
+                <i className="offline-dot"></i>
+                {offlineServers} Offline
+              </span>
 
             </div>
 
           </div>
 
 
-          {selectedEndpoint ? (
+          <div className="servers-grid">
+
+            {endpoints.length === 0 ? (
+
+              <div className="no-servers">
+                No monitoring endpoints available.
+              </div>
+
+            ) : (
+
+              endpoints.map(
+                (server) => {
+
+                  const serverStatus =
+                    String(
+                      server.status || ""
+                    ).toLowerCase();
+
+                  const isOnline =
+                    serverStatus === "online";
+
+                  const isSelected =
+                    selectedEndpoint?._id ===
+                    server._id;
+
+
+                  return (
+
+                    <div
+                      className={`server-card ${
+                        isSelected
+                          ? "server-card-selected"
+                          : ""
+                      }`}
+                      key={
+                        server._id ||
+                        server.id ||
+                        server.ipAddress
+                      }
+                    >
+
+                      <div className="server-card-header">
+
+                        <div className="server-name">
+
+                          <div
+                            className={`server-icon ${
+                              isOnline
+                                ? "online"
+                                : "offline"
+                            }`}
+                          >
+                            {isOnline
+                              ? "●"
+                              : "○"}
+                          </div>
+
+                          <div>
+
+                            <h3>
+                              {
+                                server.serverName ||
+                                "Unnamed Server"
+                              }
+                            </h3>
+
+                            <span>
+                              {
+                                server.ipAddress ||
+                                "IP unavailable"
+                              }
+                            </span>
+
+                          </div>
+
+                        </div>
+
+
+                        <span
+                          className={`server-status ${
+                            isOnline
+                              ? "online"
+                              : "offline"
+                          }`}
+                        >
+                          {
+                            server.status ||
+                            "Unknown"
+                          }
+                        </span>
+
+                      </div>
+
+
+                      <div className="server-details">
+
+                        <div>
+
+                          <span>
+                            Operating System
+                          </span>
+
+                          <strong>
+                            {
+                              server.operatingSystem ||
+                              "N/A"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div>
+
+                          <span>
+                            Provider
+                          </span>
+
+                          <strong>
+                            {
+                              server.cloudProvider ||
+                              "N/A"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div>
+
+                          <span>
+                            Region
+                          </span>
+
+                          <strong>
+                            {
+                              server.region ||
+                              "N/A"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div>
+
+                          <span>
+                            Instance Type
+                          </span>
+
+                          <strong>
+                            {
+                              server.instanceType ||
+                              "N/A"
+                            }
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+
+                      <button
+                        className={`select-server-button ${
+                          isSelected
+                            ? "selected"
+                            : ""
+                        }`}
+                        onClick={() => {
+
+                          setSelectedEndpoint(
+                            server
+                          );
+
+                        }}
+                      >
+
+                        {isSelected
+                          ? "✓ Monitoring Server"
+                          : "View Monitoring"}
+
+                      </button>
+
+                    </div>
+
+                  );
+
+                }
+              )
+
+            )}
+
+          </div>
+
+        </section>
+
+
+        {/* =================================================
+            SELECTED SERVER DETAILS
+        ================================================= */}
+
+        {selectedEndpoint && (
+
+          <section className="selected-server-section">
 
             <div className="selected-server-card">
 
-              <div>
+              <div className="selected-server-main">
 
-                <h3>
-                  {selectedEndpoint.serverName}
-                </h3>
-
-                <span>
-                  {selectedEndpoint.ipAddress}
+                <span className="section-label">
+                  SELECTED ENDPOINT
                 </span>
+
+                <h2>
+                  {selectedEndpoint.serverName}
+                </h2>
+
+                <p>
+                  {selectedEndpoint.ipAddress}
+                </p>
 
               </div>
 
@@ -1287,252 +2059,21 @@ function App() {
 
             </div>
 
-          ) : (
+          </section>
 
-            <div className="no-servers">
+        )}
 
-              No server selected.
 
-            </div>
-
-          )}
-
-        </section>
-
-
-        {/* =====================================
-            MONITORED SERVERS
-        ====================================== */}
-
-        <section className="servers-section">
-
-          <div className="servers-header">
-
-            <div>
-
-              <h2>
-                Monitored Servers
-              </h2>
-
-              <p>
-                Infrastructure endpoints registered in CloudWatchX
-              </p>
-
-            </div>
-
-
-            <span className="server-count">
-
-              {endpoints.length}{" "}
-
-              {endpoints.length === 1
-                ? "Server"
-                : "Servers"}
-
-            </span>
-
-          </div>
-
-
-          <div className="servers-grid">
-
-            {endpoints.length === 0 ? (
-
-              <div className="no-servers">
-
-                No monitoring endpoints available.
-
-              </div>
-
-            ) : (
-
-              endpoints.map(
-                (server) => {
-
-                  const serverStatus =
-                    String(
-                      server.status || ""
-                    ).toLowerCase();
-
-                  const isOnline =
-                    serverStatus === "online";
-
-                  const isSelected =
-                    selectedEndpoint?._id ===
-                    server._id;
-
-
-                  return (
-
-                    <div
-                      className={`server-card ${
-                        isSelected
-                          ? "server-card-selected"
-                          : ""
-                      }`}
-                      key={
-                        server._id ||
-                        server.id ||
-                        server.ipAddress
-                      }
-                    >
-
-                      <div className="server-card-header">
-
-                        <div>
-
-                          <h3>
-                            {
-                              server.serverName ||
-                              "Unnamed Server"
-                            }
-                          </h3>
-
-                          <span className="server-ip">
-
-                            {
-                              server.ipAddress ||
-                              "IP not available"
-                            }
-
-                          </span>
-
-                        </div>
-
-
-                        <span
-                          className={`server-status ${
-                            isOnline
-                              ? "online"
-                              : "offline"
-                          }`}
-                        >
-
-                          {
-                            server.status ||
-                            "Unknown"
-                          }
-
-                        </span>
-
-                      </div>
-
-
-                      <div className="server-details">
-
-                        <div>
-
-                          <span>
-                            Operating System
-                          </span>
-
-                          <strong>
-                            {
-                              server.operatingSystem ||
-                              "N/A"
-                            }
-                          </strong>
-
-                        </div>
-
-
-                        <div>
-
-                          <span>
-                            Cloud Provider
-                          </span>
-
-                          <strong>
-                            {
-                              server.cloudProvider ||
-                              "N/A"
-                            }
-                          </strong>
-
-                        </div>
-
-
-                        <div>
-
-                          <span>
-                            Region
-                          </span>
-
-                          <strong>
-                            {
-                              server.region ||
-                              "N/A"
-                            }
-                          </strong>
-
-                        </div>
-
-
-                        <div>
-
-                          <span>
-                            Instance Type
-                          </span>
-
-                          <strong>
-                            {
-                              server.instanceType ||
-                              "N/A"
-                            }
-                          </strong>
-
-                        </div>
-
-                      </div>
-
-
-                      {/* SELECT SERVER */}
-
-                      <button
-                        className={`select-server-button ${
-                          isSelected
-                            ? "selected"
-                            : ""
-                        }`}
-                        onClick={() => {
-
-                          setSelectedEndpoint(
-                            server
-                          );
-
-                        }}
-                      >
-
-                        {isSelected
-                          ? "✓ Selected Server"
-                          : "Select Server"}
-
-                      </button>
-
-                    </div>
-
-                  );
-
-                }
-              )
-
-            )}
-
-          </div>
-
-        </section>
-
-
-        {/* =====================================
-            MONITORING INFORMATION
-        ====================================== */}
+        {/* =================================================
+            SYSTEM INFORMATION
+        ================================================= */}
 
         <section className="info-card">
 
           <div>
 
             <span>
-              Monitoring Status
+              Monitoring
             </span>
 
             <strong className="online-text">
@@ -1545,7 +2086,7 @@ function App() {
           <div>
 
             <span>
-              Refresh Interval
+              Metric Refresh
             </span>
 
             <strong>
@@ -1558,11 +2099,11 @@ function App() {
           <div>
 
             <span>
-              History Samples
+              Endpoint Refresh
             </span>
 
             <strong>
-              {history.length}
+              30 seconds
             </strong>
 
           </div>
@@ -1571,15 +2112,11 @@ function App() {
           <div>
 
             <span>
-              Selected Server
+              History
             </span>
 
             <strong>
-              {
-                selectedEndpoint
-                  ? selectedEndpoint.serverName
-                  : "None"
-              }
+              {history.length} samples
             </strong>
 
           </div>
@@ -1611,6 +2148,23 @@ function App() {
           </div>
 
         </section>
+
+
+        {/* =================================================
+            FOOTER
+        ================================================= */}
+
+        <footer className="dashboard-footer">
+
+          <span>
+            CloudWatchX Infrastructure Monitoring
+          </span>
+
+          <span>
+            Prometheus • Windows Exporter
+          </span>
+
+        </footer>
 
 
       </main>

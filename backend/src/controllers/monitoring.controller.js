@@ -1,6 +1,6 @@
 const prometheusService = require("../services/prometheus.service");
 const alertService = require("../services/alert.service");
-
+const monitoringHistoryService =require("../services/monitoringHistory.service");
 
 /*
  * ==========================================
@@ -669,6 +669,30 @@ const getMonitoringSummary = async (req, res) => {
                 "Disk",
                 diskValue
             );
+        // =============================================
+        // Save Monitoring History
+        // =============================================
+
+        const networkReceiveValue = Number(
+            parseFloat(
+                receive[0].value[1]
+            ).toFixed(2)
+        );
+
+        const networkSendValue = Number(
+            parseFloat(
+                send[0].value[1]
+            ).toFixed(2)
+        );
+
+        await monitoringHistoryService.createMonitoringHistory({
+            serverName: server,
+            cpu: cpuValue,
+            memory: memoryValue,
+            disk: diskValue,
+            networkReceive: networkReceiveValue,
+            networkSend: networkSendValue,
+        });
         // =============================================
         // Final response
         // =============================================

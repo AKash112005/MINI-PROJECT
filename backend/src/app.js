@@ -8,6 +8,7 @@ const endpointRoutes = require("./routes/endpoint.routes");
 const app = express();
 const authRoutes = require("./routes/auth.routes");
 const alertRoutes = require("./routes/alert.routes");
+const monitoringHistoryRoutes =require("./routes/monitoringHistory.routes");
 // Middleware
 app.use(cors());
 app.use(helmet());
@@ -19,4 +20,5 @@ app.use("/api/auth", authRoutes);
 app.use("/api/endpoints", endpointRoutes);
 app.use("/api/monitoring", monitoringRoutes);
 app.use("/api/alerts", alertRoutes);
+app.use("/api/monitoring-history", monitoringHistoryRoutes);
 module.exports = app;
