@@ -7,6 +7,7 @@ const healthRoutes = require("./routes/health.routes");
 const endpointRoutes = require("./routes/endpoint.routes");
 const app = express();
 const authRoutes = require("./routes/auth.routes");
+const alertRoutes = require("./routes/alert.routes");
 // Middleware
 app.use(cors());
 app.use(helmet());
@@ -17,4 +18,5 @@ app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/endpoints", endpointRoutes);
 app.use("/api/monitoring", monitoringRoutes);
+app.use("/api/alerts", alertRoutes);
 module.exports = app;

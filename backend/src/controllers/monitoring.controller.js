@@ -1,6 +1,67 @@
 const prometheusService = require("../services/prometheus.service");
+const alertService = require("../services/alert.service");
 
 
+/*
+ * ==========================================
+ * Check Metric Threshold And Create Alert
+ * ==========================================
+ */
+const checkAndCreateAlert = async (
+    serverName,
+    metric,
+    value
+) => {
+    let severity = null;
+    let message = "";
+
+    if (metric === "CPU") {
+        if (value >= 85) {
+            severity = "Critical";
+            message = "CPU usage exceeded critical threshold";
+        } else if (value >= 70) {
+            severity = "Warning";
+            message = "CPU usage exceeded warning threshold";
+        }
+    }
+
+    if (metric === "Memory") {
+        if (value >= 85) {
+            severity = "Critical";
+            message = "Memory usage exceeded critical threshold";
+        } else if (value >= 75) {
+            severity = "Warning";
+            message = "Memory usage exceeded warning threshold";
+        }
+    }
+
+    if (metric === "Disk") {
+        if (value >= 90) {
+            severity = "Critical";
+            message = "Disk usage exceeded critical threshold";
+        } else if (value >= 80) {
+            severity = "Warning";
+            message = "Disk usage exceeded warning threshold";
+        }
+    }
+
+    if (!severity) {
+        await alertService.resolveAlertByMetric(
+            serverName,
+            metric
+        );
+
+        return null;
+    }
+
+    return await alertService.createOrGetAlert({
+        serverName,
+        metric,
+        value,
+        severity,
+        message,
+    });
+};
 // =====================================================
 // CPU Usage
 // =====================================================
@@ -569,7 +630,45 @@ const getMonitoringSummary = async (req, res) => {
                 (totalSeconds % 3600) / 60
             );
 
+// =============================================
+// Check Alert Thresholds
+// =============================================
 
+            const cpuValue = Number(
+                parseFloat(cpu[0].value[1]).toFixed(2)
+            );
+
+            const memoryValue = Number(
+                parseFloat(memory[0].value[1]).toFixed(2)
+            );
+
+            const diskValue = Number(
+                parseFloat(disk[0].value[1]).toFixed(2)
+            );
+
+
+            // Check CPU alert
+            await checkAndCreateAlert(
+                server,
+                "CPU",
+                cpuValue
+            );
+
+
+            // Check Memory alert
+            await checkAndCreateAlert(
+                server,
+                "Memory",
+                memoryValue
+            );
+
+
+            // Check Disk alert
+            await checkAndCreateAlert(
+                server,
+                "Disk",
+                diskValue
+            );
         // =============================================
         // Final response
         // =============================================

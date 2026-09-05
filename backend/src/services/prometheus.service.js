@@ -75,9 +75,50 @@ const queryPrometheusByServer = async (
         );
     }
 };
+/*
+ * ==========================================
+ * Check Monitoring Availability For Server
+ * ==========================================
+ */
+const checkServerAvailability = async (server) => {
 
+    try {
+
+        if (!server) {
+            return false;
+        }
+
+        const query = `
+            up{
+                server="${server}"
+            }
+        `;
+
+        const result = await queryPrometheus(query);
+
+        if (!result || result.length === 0) {
+            return false;
+        }
+
+        return result.some(
+            (item) =>
+                item.value &&
+                Number(item.value[1]) === 1
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Server Availability Check Error:",
+            error.message
+        );
+
+        return false;
+    }
+};
 
 module.exports = {
     queryPrometheus,
     queryPrometheusByServer,
+    checkServerAvailability,
 };
