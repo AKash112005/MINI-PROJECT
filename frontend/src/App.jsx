@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState,useRef } from "react";
 import axios from "axios";
 
 import {
@@ -97,6 +97,8 @@ function App() {
   const [alerts, setAlerts] =
     useState([]);
 
+  const alertsRequestRef = useRef(0);
+
   const [loading, setLoading] =
     useState(true);
 
@@ -194,18 +196,18 @@ function App() {
     } catch (err) {
 
       console.error(
-        "Monitoring API Error:",
-        err
-      );
+    "Monitoring API Error:",
+    err
+  );
 
+  setMetrics(null);
 
-      setMetrics(null);
-
-
-      setError(
-        err.response?.data?.message ||
-        "Unable to fetch monitoring data."
-      );
+  setError(
+    err.response?.data?.message ||
+    "Unable to fetch monitoring data."
+  );
+  setLastUpdated(null);
+  
 
 
     } finally {
@@ -424,6 +426,8 @@ function App() {
   const fetchAlerts = async (
     serverOverride = null
   ) => {
+    const requestId =
+      ++alertsRequestRef.current;
 
     try {
 
@@ -463,9 +467,13 @@ function App() {
         );
 
 
-      setAlerts(
-        response.data.data || []
-      );
+      if (
+          requestId === alertsRequestRef.current
+        ) {
+          setAlerts(
+            response.data.data || []
+          );
+        }
 
 
     } catch (err) {
@@ -1022,36 +1030,34 @@ function App() {
             </div>
 
 
-            {/* =================================================
-                LIVE MONITORING STATUS
-            ================================================= */}
-
-            <div className="last-updated">
-
-              <span></span>
-
-              <div>
-
-                <strong>
-                  LIVE MONITORING
-                </strong>
-
-                <small>
-                  Last updated:{" "}
-                  {lastUpdated
-                    ? lastUpdated.toLocaleTimeString()
-                    : "--"}
-                </small>
-
-              </div>
-
-            </div>
-
-          </div>
-
-
-          <div className="metrics-grid">
-
+            {/* ================================================= 
+                    LIVE MONITORING STATUS 
+                ================================================= */} 
+                
+                <div className="last-updated"> 
+                
+                  <span></span> 
+                
+                  <div> 
+                
+                    <strong> 
+                      {lastUpdated 
+                        ? "LIVE MONITORING" 
+                        : "MONITORING UNAVAILABLE"} 
+                    </strong> 
+                
+                    <small> 
+                      Last updated:{" "} 
+                      {lastUpdated 
+                        ? lastUpdated.toLocaleTimeString() 
+                        : "--"} 
+                    </small> 
+                
+                  </div> 
+                
+                </div> 
+                
+                <div className="metrics-grid"></div>
 
             {/* =================================================
                 CPU
