@@ -615,10 +615,14 @@ button:focus-visible {
 }
 
 .alert-count {
-  padding: 7px 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 6px 9px;
 
   border: 1px solid #26354a;
-  border-radius: 7px;
+  border-radius: 8px;
 
   background: #0d1422;
 
@@ -626,6 +630,24 @@ button:focus-visible {
 
   font-size: 10px;
   font-weight: 700;
+}
+
+.alert-count span {
+  padding: 4px 7px;
+
+  border-radius: 5px;
+
+  background: #111827;
+
+  white-space: nowrap;
+}
+
+.alert-count span:nth-child(2) {
+  color: #f87171;
+}
+
+.alert-count span:nth-child(3) {
+  color: #facc15;
 }
 
 .alerts-list {
@@ -1592,4 +1614,85 @@ button:focus-visible {
     grid-template-columns: 1fr;
   }
 
+}
+@media (max-width: 1100px) {
+
+  .kpi-section {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+}
+
+@media (max-width: 600px) {
+
+  .kpi-section {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+/* =====================================================
+   INFRASTRUCTURE KPI OVERVIEW
+===================================================== */
+
+.kpi-section {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 42px;
+}
+
+.kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px;
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 16px;
+  transition: 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: #374151;
+}
+
+.kpi-icon {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #1f2937;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.kpi-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: #9ca3af;
+  margin-bottom: 5px;
+}
+
+.kpi-content strong {
+  font-size: 28px;
+  line-height: 1.1;
+  color: #f9fafb;
+}
+
+.kpi-content p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: #6b7280;
 }

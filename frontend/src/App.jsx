@@ -365,8 +365,6 @@ function App() {
       setSelectedEndpoint(
         (currentSelected) => {
 
-          // If a server is already selected,
-          // check whether it still exists.
           if (currentSelected) {
 
             const stillExists =
@@ -386,8 +384,6 @@ function App() {
           }
 
 
-          // If there is no selected server,
-          // select the first available endpoint.
           if (
             endpointData.length > 0
           ) {
@@ -516,7 +512,6 @@ function App() {
       );
 
 
-      // Refresh alerts
       fetchAlerts();
 
 
@@ -572,6 +567,7 @@ function App() {
 
 
     // Clear previous server data
+
     setHistory([]);
 
     setMetrics(null);
@@ -586,7 +582,7 @@ function App() {
 
 
     // -----------------------------------------------
-    // Initial data
+    // INITIAL DATA
     // -----------------------------------------------
 
     fetchMetrics(server);
@@ -597,7 +593,7 @@ function App() {
 
 
     // -----------------------------------------------
-    // Metrics refresh — 10 seconds
+    // METRICS REFRESH — 10 SECONDS
     // -----------------------------------------------
 
     const metricInterval =
@@ -612,7 +608,7 @@ function App() {
 
 
     // -----------------------------------------------
-    // Alerts refresh — 10 seconds
+    // ALERTS REFRESH — 10 SECONDS
     // -----------------------------------------------
 
     const alertInterval =
@@ -627,7 +623,7 @@ function App() {
 
 
     // -----------------------------------------------
-    // History refresh — 10 seconds
+    // HISTORY REFRESH — 10 SECONDS
     // -----------------------------------------------
 
     const historyInterval =
@@ -727,6 +723,10 @@ function App() {
       : null;
 
 
+  // ===================================================
+  // SERVER COUNTS
+  // ===================================================
+
   const onlineServers =
     endpoints.filter(
       (server) =>
@@ -742,12 +742,31 @@ function App() {
 
 
   // ===================================================
+  // ALERT COUNTS
+  // ===================================================
+
+  const criticalAlerts =
+    alerts.filter(
+      (alert) =>
+        alert.severity === "Critical"
+    ).length;
+
+
+  const warningAlerts =
+    alerts.filter(
+      (alert) =>
+        alert.severity === "Warning"
+    ).length;
+
+
+  // ===================================================
   // DASHBOARD
   // ===================================================
 
   return (
 
     <div className="app">
+
 
       {/* =================================================
           HEADER
@@ -841,6 +860,114 @@ function App() {
 
 
         {/* =================================================
+            INFRASTRUCTURE KPI OVERVIEW
+        ================================================= */}
+
+        <section className="kpi-section">
+
+          <div className="kpi-card">
+
+            <div className="kpi-icon">
+              SVR
+            </div>
+
+            <div className="kpi-content">
+
+              <span className="kpi-label">
+                TOTAL SERVERS
+              </span>
+
+              <strong>
+                {endpoints.length}
+              </strong>
+
+              <p>
+                Registered endpoints
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div className="kpi-card">
+
+            <div className="kpi-icon">
+              ON
+            </div>
+
+            <div className="kpi-content">
+
+              <span className="kpi-label">
+                ONLINE SERVERS
+              </span>
+
+              <strong>
+                {onlineServers}
+              </strong>
+
+              <p>
+                Currently available
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div className="kpi-card">
+
+            <div className="kpi-icon">
+              OFF
+            </div>
+
+            <div className="kpi-content">
+
+              <span className="kpi-label">
+                OFFLINE SERVERS
+              </span>
+
+              <strong>
+                {offlineServers}
+              </strong>
+
+              <p>
+                Currently unavailable
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div className="kpi-card">
+
+            <div className="kpi-icon">
+              ALT
+            </div>
+
+            <div className="kpi-content">
+
+              <span className="kpi-label">
+                ACTIVE ALERTS
+              </span>
+
+              <strong>
+                {alerts.length}
+              </strong>
+
+              <p>
+                Requiring attention
+              </p>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =================================================
             ERROR
         ================================================= */}
 
@@ -895,17 +1022,28 @@ function App() {
             </div>
 
 
+            {/* =================================================
+                LIVE MONITORING STATUS
+            ================================================= */}
+
             <div className="last-updated">
 
               <span></span>
 
-              Last updated:
+              <div>
 
-              {" "}
+                <strong>
+                  LIVE MONITORING
+                </strong>
 
-              {lastUpdated
-                ? lastUpdated.toLocaleTimeString()
-                : "--"}
+                <small>
+                  Last updated:{" "}
+                  {lastUpdated
+                    ? lastUpdated.toLocaleTimeString()
+                    : "--"}
+                </small>
+
+              </div>
 
             </div>
 
@@ -915,7 +1053,9 @@ function App() {
           <div className="metrics-grid">
 
 
-            {/* CPU */}
+            {/* =================================================
+                CPU
+            ================================================= */}
 
             <div className="metric-card">
 
@@ -951,6 +1091,7 @@ function App() {
                     : "--"}
 
                 </strong>
+
 
                 {cpuStatus && (
 
@@ -990,7 +1131,9 @@ function App() {
             </div>
 
 
-            {/* MEMORY */}
+            {/* =================================================
+                MEMORY
+            ================================================= */}
 
             <div className="metric-card">
 
@@ -1026,6 +1169,7 @@ function App() {
                     : "--"}
 
                 </strong>
+
 
                 {memoryStatus && (
 
@@ -1065,7 +1209,9 @@ function App() {
             </div>
 
 
-            {/* DISK */}
+            {/* =================================================
+                DISK
+            ================================================= */}
 
             <div className="metric-card">
 
@@ -1101,6 +1247,7 @@ function App() {
                     : "--"}
 
                 </strong>
+
 
                 {diskStatus && (
 
@@ -1140,7 +1287,9 @@ function App() {
             </div>
 
 
-            {/* UPTIME */}
+            {/* =================================================
+                UPTIME
+            ================================================= */}
 
             <div className="metric-card">
 
@@ -1217,13 +1366,17 @@ function App() {
 
             <div className="alert-count">
 
-              {alerts.length}
+              <span>
+                {alerts.length} Active
+              </span>
 
-              {" "}
+              <span>
+                {criticalAlerts} Critical
+              </span>
 
-              {alerts.length === 1
-                ? "Active Alert"
-                : "Active Alerts"}
+              <span>
+                {warningAlerts} Warning
+              </span>
 
             </div>
 
@@ -1293,10 +1446,12 @@ function App() {
                         </h3>
 
                         <strong className="alert-value">
+
                           {Number(
                             alert.value
                           ).toFixed(2)}
                           %
+
                         </strong>
 
                       </div>
@@ -1310,17 +1465,23 @@ function App() {
                       <div className="alert-meta">
 
                         <span>
+
                           Server:
                           {" "}
+
                           <strong>
                             {alert.serverName}
                           </strong>
+
                         </span>
 
+
                         <span>
+
                           {formatAlertTime(
                             alert.createdAt
                           )}
+
                         </span>
 
                       </div>
@@ -1386,9 +1547,11 @@ function App() {
                   : "inactive"
               }`}
             >
+
               {metrics
                 ? "ACTIVE"
                 : "UNAVAILABLE"}
+
             </span>
 
           </div>
@@ -1478,7 +1641,9 @@ function App() {
           </div>
 
 
-          {/* CPU */}
+          {/* =================================================
+              CPU HISTORY
+          ================================================= */}
 
           <div className="chart-card">
 
@@ -1537,7 +1702,9 @@ function App() {
           </div>
 
 
-          {/* MEMORY */}
+          {/* =================================================
+              MEMORY HISTORY
+          ================================================= */}
 
           <div className="chart-card">
 
@@ -1596,7 +1763,9 @@ function App() {
           </div>
 
 
-          {/* DISK */}
+          {/* =================================================
+              DISK HISTORY
+          ================================================= */}
 
           <div className="chart-card">
 
@@ -1655,7 +1824,9 @@ function App() {
           </div>
 
 
-          {/* NETWORK */}
+          {/* =================================================
+              NETWORK HISTORY
+          ================================================= */}
 
           <div className="chart-card">
 
@@ -1752,13 +1923,20 @@ function App() {
             <div className="server-summary">
 
               <span>
+
                 <i className="online-dot"></i>
+
                 {onlineServers} Online
+
               </span>
 
+
               <span>
+
                 <i className="offline-dot"></i>
+
                 {offlineServers} Offline
+
               </span>
 
             </div>
@@ -1784,8 +1962,10 @@ function App() {
                       server.status || ""
                     ).toLowerCase();
 
+
                   const isOnline =
                     serverStatus === "online";
+
 
                   const isSelected =
                     selectedEndpoint?._id ===
@@ -1818,25 +1998,33 @@ function App() {
                                 : "offline"
                             }`}
                           >
+
                             {isOnline
                               ? "●"
                               : "○"}
+
                           </div>
+
 
                           <div>
 
                             <h3>
+
                               {
                                 server.serverName ||
                                 "Unnamed Server"
                               }
+
                             </h3>
 
+
                             <span>
+
                               {
                                 server.ipAddress ||
                                 "IP unavailable"
                               }
+
                             </span>
 
                           </div>
@@ -1851,10 +2039,12 @@ function App() {
                               : "offline"
                           }`}
                         >
+
                           {
                             server.status ||
                             "Unknown"
                           }
+
                         </span>
 
                       </div>
@@ -1869,10 +2059,12 @@ function App() {
                           </span>
 
                           <strong>
+
                             {
                               server.operatingSystem ||
                               "N/A"
                             }
+
                           </strong>
 
                         </div>
@@ -1885,10 +2077,12 @@ function App() {
                           </span>
 
                           <strong>
+
                             {
                               server.cloudProvider ||
                               "N/A"
                             }
+
                           </strong>
 
                         </div>
@@ -1901,10 +2095,12 @@ function App() {
                           </span>
 
                           <strong>
+
                             {
                               server.region ||
                               "N/A"
                             }
+
                           </strong>
 
                         </div>
@@ -1917,10 +2113,12 @@ function App() {
                           </span>
 
                           <strong>
+
                             {
                               server.instanceType ||
                               "N/A"
                             }
+
                           </strong>
 
                         </div>
@@ -1999,10 +2197,12 @@ function App() {
                   </span>
 
                   <strong>
+
                     {
                       selectedEndpoint.operatingSystem ||
                       "N/A"
                     }
+
                   </strong>
 
                 </div>
@@ -2015,10 +2215,12 @@ function App() {
                   </span>
 
                   <strong>
+
                     {
                       selectedEndpoint.cloudProvider ||
                       "N/A"
                     }
+
                   </strong>
 
                 </div>
@@ -2031,10 +2233,12 @@ function App() {
                   </span>
 
                   <strong>
+
                     {
                       selectedEndpoint.region ||
                       "N/A"
                     }
+
                   </strong>
 
                 </div>
@@ -2047,10 +2251,12 @@ function App() {
                   </span>
 
                   <strong>
+
                     {
                       selectedEndpoint.instanceType ||
                       "N/A"
                     }
+
                   </strong>
 
                 </div>
