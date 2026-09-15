@@ -1,4 +1,4 @@
-import { useEffect, useState,useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 
 import {
@@ -85,11 +85,20 @@ function App() {
   const [metrics, setMetrics] =
     useState(null);
 
+  const metricsRequestRef =
+    useRef(0);
+
   const [history, setHistory] =
     useState([]);
 
+  const historyRequestRef =
+    useRef(0);
+
   const [endpoints, setEndpoints] =
     useState([]);
+
+  const endpointsRequestRef =
+  useRef(0);
 
   const [selectedEndpoint, setSelectedEndpoint] =
     useState(null);
@@ -97,7 +106,8 @@ function App() {
   const [alerts, setAlerts] =
     useState([]);
 
-  const alertsRequestRef = useRef(0);
+  const alertsRequestRef =
+    useRef(0);
 
   const [loading, setLoading] =
     useState(true);
@@ -119,6 +129,9 @@ function App() {
   const fetchMetrics = async (
     serverOverride = null
   ) => {
+
+    const requestId =
+      ++metricsRequestRef.current;
 
     try {
 
@@ -182,32 +195,47 @@ function App() {
       // SET CURRENT METRICS
       // -----------------------------------------------
 
-      setMetrics(data);
+      if (
+        requestId ===
+        metricsRequestRef.current
+      ) {
+
+        setMetrics(data);
+
+      }
 
 
       // -----------------------------------------------
       // UPDATE TIME
       // -----------------------------------------------
 
-      setLastUpdated(
-        new Date()
-      );
+      if (
+        requestId ===
+        metricsRequestRef.current
+      ) {
+
+        setLastUpdated(
+          new Date()
+        );
+
+      }
+
 
     } catch (err) {
 
       console.error(
-    "Monitoring API Error:",
-    err
-  );
+        "Monitoring API Error:",
+        err
+      );
 
-  setMetrics(null);
+      setMetrics(null);
 
-  setError(
-    err.response?.data?.message ||
-    "Unable to fetch monitoring data."
-  );
-  setLastUpdated(null);
-  
+      setError(
+        err.response?.data?.message ||
+        "Unable to fetch monitoring data."
+      );
+
+      setLastUpdated(null);
 
 
     } finally {
@@ -226,6 +254,9 @@ function App() {
   const fetchHistory = async (
     serverOverride = null
   ) => {
+
+    const requestId =
+      ++historyRequestRef.current;
 
     try {
 
@@ -282,13 +313,19 @@ function App() {
                 : "--",
 
             cpu:
-              Number(record.cpu || 0),
+              Number(
+                record.cpu || 0
+              ),
 
             memory:
-              Number(record.memory || 0),
+              Number(
+                record.memory || 0
+              ),
 
             disk:
-              Number(record.disk || 0),
+              Number(
+                record.disk || 0
+              ),
 
             receive:
               Number(
@@ -308,9 +345,16 @@ function App() {
       // DISPLAY LATEST 30 RECORDS
       // -----------------------------------------------
 
-      setHistory(
-        formattedHistory.slice(-30)
-      );
+      if (
+        requestId ===
+        historyRequestRef.current
+      ) {
+
+        setHistory(
+          formattedHistory.slice(-30)
+        );
+
+      }
 
 
     } catch (err) {
@@ -332,7 +376,7 @@ function App() {
   // ===================================================
 
   const fetchEndpoints = async () => {
-
+      const requestId = ++endpointsRequestRef.current;
     try {
 
       const token =
@@ -355,9 +399,11 @@ function App() {
         response.data.data || [];
 
 
-      setEndpoints(
-        endpointData
-      );
+      if (requestId !== endpointsRequestRef.current) {
+          return;
+      }
+
+      setEndpoints(endpointData);
 
 
       // -----------------------------------------------
@@ -426,6 +472,7 @@ function App() {
   const fetchAlerts = async (
     serverOverride = null
   ) => {
+
     const requestId =
       ++alertsRequestRef.current;
 
@@ -468,12 +515,15 @@ function App() {
 
 
       if (
-          requestId === alertsRequestRef.current
-        ) {
-          setAlerts(
-            response.data.data || []
-          );
-        }
+        requestId ===
+        alertsRequestRef.current
+      ) {
+
+        setAlerts(
+          response.data.data || []
+        );
+
+      }
 
 
     } catch (err) {
@@ -998,7 +1048,9 @@ function App() {
 
             <button
               onClick={() =>
-                fetchMetrics()
+                fetchMetrics(
+                  selectedEndpoint?.serverName
+                )
               }
             >
               Retry
@@ -1030,34 +1082,42 @@ function App() {
             </div>
 
 
-            {/* ================================================= 
-                    LIVE MONITORING STATUS 
-                ================================================= */} 
-                
-                <div className="last-updated"> 
-                
-                  <span></span> 
-                
-                  <div> 
-                
-                    <strong> 
-                      {lastUpdated 
-                        ? "LIVE MONITORING" 
-                        : "MONITORING UNAVAILABLE"} 
-                    </strong> 
-                
-                    <small> 
-                      Last updated:{" "} 
-                      {lastUpdated 
-                        ? lastUpdated.toLocaleTimeString() 
-                        : "--"} 
-                    </small> 
-                
-                  </div> 
-                
-                </div> 
-                
-                <div className="metrics-grid"></div>
+            {/* =================================================
+                LIVE MONITORING STATUS
+            ================================================= */}
+
+            <div className="last-updated">
+
+              <span></span>
+
+              <div>
+
+                <strong>
+                  {lastUpdated
+                    ? "LIVE MONITORING"
+                    : "MONITORING UNAVAILABLE"}
+                </strong>
+
+                <small>
+                  Last updated:{" "}
+                  {lastUpdated
+                    ? lastUpdated.toLocaleTimeString()
+                    : "--"}
+                </small>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* =================================================
+              METRICS GRID
+          ================================================= */}
+
+          <div className="metrics-grid">
+
 
             {/* =================================================
                 CPU
@@ -1343,6 +1403,7 @@ function App() {
               </p>
 
             </div>
+
 
           </div>
 
