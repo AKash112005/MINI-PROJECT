@@ -623,6 +623,33 @@ function App() {
 
 
   // ===================================================
+  // ADD ENDPOINT MODAL
+  // ===================================================
+
+  const [showAddEndpoint, setShowAddEndpoint] =
+    useState(false);
+
+
+  const [endpointForm, setEndpointForm] =
+    useState({
+      serverName: "",
+      ipAddress: "",
+      operatingSystem: "Windows",
+      cloudProvider: "Local",
+      region: "",
+      instanceType: "",
+    });
+
+
+  const [endpointFormLoading, setEndpointFormLoading] =
+    useState(false);
+
+
+  const [endpointFormError, setEndpointFormError] =
+    useState("");
+
+
+  // ===================================================
   // ACTIVE SIDEBAR SECTION
   // ===================================================
 
@@ -1059,6 +1086,149 @@ function App() {
         setHistory([]);
 
       }
+
+    }
+
+  };
+
+
+  // ===================================================
+  // ADD ENDPOINT
+  // ===================================================
+
+  const handleAddEndpoint = async (event) => {
+
+    event.preventDefault();
+
+    setEndpointFormError("");
+
+
+    if (
+      !endpointForm.serverName.trim() ||
+      !endpointForm.ipAddress.trim() ||
+      !endpointForm.region.trim() ||
+      !endpointForm.instanceType.trim()
+    ) {
+
+      setEndpointFormError(
+        "Please complete all endpoint fields."
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      setEndpointFormLoading(true);
+
+
+      const token =
+        localStorage.getItem("token");
+
+
+      const response =
+        await axios.post(
+          ENDPOINTS_URL,
+          {
+            serverName:
+              endpointForm.serverName.trim(),
+
+            ipAddress:
+              endpointForm.ipAddress.trim(),
+
+            operatingSystem:
+              endpointForm.operatingSystem,
+
+            cloudProvider:
+              endpointForm.cloudProvider,
+
+            region:
+              endpointForm.region.trim(),
+
+            instanceType:
+              endpointForm.instanceType.trim(),
+          },
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+              "Content-Type":
+                "application/json",
+            },
+          }
+        );
+
+
+      const createdEndpoint =
+        response.data?.data;
+
+
+      if (!createdEndpoint) {
+
+        throw new Error(
+          "Endpoint was created but no endpoint data was returned."
+        );
+
+      }
+
+
+      setShowAddEndpoint(false);
+
+      setEndpointForm({
+        serverName: "",
+        ipAddress: "",
+        operatingSystem: "Windows",
+        cloudProvider: "Local",
+        region: "",
+        instanceType: "",
+      });
+
+      setEndpointFormError("");
+
+
+      setSelectedEndpoint(
+        createdEndpoint
+      );
+
+      setActiveSection(
+        "performance"
+      );
+
+
+      await fetchEndpoints();
+
+
+      requestAnimationFrame(() => {
+
+        document
+          .getElementById("performance")
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+
+      });
+
+
+    } catch (err) {
+
+      console.error(
+        "Add Endpoint Error:",
+        err
+      );
+
+
+      setEndpointFormError(
+        err.response?.data?.message ||
+        err.message ||
+        "Unable to add endpoint."
+      );
+
+    } finally {
+
+      setEndpointFormLoading(false);
 
     }
 
@@ -1935,6 +2105,28 @@ function App() {
 
           </div>
 
+
+          <button
+            type="button"
+            className="sidebar-add-endpoint"
+            onClick={() => {
+
+              setEndpointFormError("");
+              setShowAddEndpoint(true);
+
+            }}
+          >
+
+            <span className="sidebar-add-icon">
+              +
+            </span>
+
+            <span>
+              Add Endpoint
+            </span>
+
+          </button>
+
         </div>
 
 
@@ -2078,6 +2270,332 @@ function App() {
         </div>
 
       </header>
+
+
+      {/* =================================================
+          ADD ENDPOINT MODAL
+      ================================================= */}
+
+      {showAddEndpoint && (
+
+        <div
+          className="endpoint-modal-overlay"
+          onMouseDown={(event) => {
+
+            if (
+              event.target ===
+              event.currentTarget &&
+              !endpointFormLoading
+            ) {
+
+              setShowAddEndpoint(false);
+              setEndpointFormError("");
+
+            }
+
+          }}
+        >
+
+          <div
+            className="endpoint-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-endpoint-title"
+          >
+
+            <div className="endpoint-modal-header">
+
+              <div>
+
+                <span className="endpoint-modal-eyebrow">
+                  INFRASTRUCTURE
+                </span>
+
+                <h2 id="add-endpoint-title">
+                  Add Monitoring Endpoint
+                </h2>
+
+                <p>
+                  Register a server for CloudWatchX monitoring.
+                </p>
+
+              </div>
+
+
+              <button
+                type="button"
+                className="endpoint-modal-close"
+                disabled={endpointFormLoading}
+                onClick={() => {
+
+                  setShowAddEndpoint(false);
+                  setEndpointFormError("");
+
+                }}
+                aria-label="Close add endpoint dialog"
+              >
+                ×
+              </button>
+
+            </div>
+
+
+            <form
+              className="endpoint-form"
+              onSubmit={handleAddEndpoint}
+            >
+
+              <div className="endpoint-form-grid">
+
+                <div className="endpoint-form-group endpoint-form-full">
+
+                  <label htmlFor="endpoint-server-name">
+                    Server Name
+                  </label>
+
+                  <input
+                    id="endpoint-server-name"
+                    type="text"
+                    value={endpointForm.serverName}
+                    onChange={(event) =>
+                      setEndpointForm({
+                        ...endpointForm,
+                        serverName:
+                          event.target.value,
+                      })
+                    }
+                    placeholder="e.g. Production Server 02"
+                    disabled={endpointFormLoading}
+                  />
+
+                </div>
+
+
+                <div className="endpoint-form-group">
+
+                  <label htmlFor="endpoint-ip">
+                    IP Address
+                  </label>
+
+                  <input
+                    id="endpoint-ip"
+                    type="text"
+                    value={endpointForm.ipAddress}
+                    onChange={(event) =>
+                      setEndpointForm({
+                        ...endpointForm,
+                        ipAddress:
+                          event.target.value,
+                      })
+                    }
+                    placeholder="e.g. 192.168.1.20"
+                    disabled={endpointFormLoading}
+                  />
+
+                </div>
+
+
+                <div className="endpoint-form-group">
+
+                  <label htmlFor="endpoint-os">
+                    Operating System
+                  </label>
+
+                  <select
+                    id="endpoint-os"
+                    value={endpointForm.operatingSystem}
+                    onChange={(event) =>
+                      setEndpointForm({
+                        ...endpointForm,
+                        operatingSystem:
+                          event.target.value,
+                      })
+                    }
+                    disabled={endpointFormLoading}
+                  >
+
+                    <option value="Ubuntu">
+                      Ubuntu
+                    </option>
+
+                    <option value="Amazon Linux">
+                      Amazon Linux
+                    </option>
+
+                    <option value="Windows">
+                      Windows
+                    </option>
+
+                    <option value="CentOS">
+                      CentOS
+                    </option>
+
+                    <option value="Debian">
+                      Debian
+                    </option>
+
+                  </select>
+
+                </div>
+
+
+                <div className="endpoint-form-group">
+
+                  <label htmlFor="endpoint-provider">
+                    Cloud Provider
+                  </label>
+
+                  <select
+                    id="endpoint-provider"
+                    value={endpointForm.cloudProvider}
+                    onChange={(event) =>
+                      setEndpointForm({
+                        ...endpointForm,
+                        cloudProvider:
+                          event.target.value,
+                      })
+                    }
+                    disabled={endpointFormLoading}
+                  >
+
+                    <option value="AWS">
+                      AWS
+                    </option>
+
+                    <option value="Azure">
+                      Azure
+                    </option>
+
+                    <option value="GCP">
+                      GCP
+                    </option>
+
+                    <option value="Local">
+                      Local
+                    </option>
+
+                  </select>
+
+                </div>
+
+
+                <div className="endpoint-form-group">
+
+                  <label htmlFor="endpoint-region">
+                    Region
+                  </label>
+
+                  <input
+                    id="endpoint-region"
+                    type="text"
+                    value={endpointForm.region}
+                    onChange={(event) =>
+                      setEndpointForm({
+                        ...endpointForm,
+                        region:
+                          event.target.value,
+                      })
+                    }
+                    placeholder="e.g. ap-south-1"
+                    disabled={endpointFormLoading}
+                  />
+
+                </div>
+
+
+                <div className="endpoint-form-group endpoint-form-full">
+
+                  <label htmlFor="endpoint-instance-type">
+                    Instance Type
+                  </label>
+
+                  <input
+                    id="endpoint-instance-type"
+                    type="text"
+                    value={endpointForm.instanceType}
+                    onChange={(event) =>
+                      setEndpointForm({
+                        ...endpointForm,
+                        instanceType:
+                          event.target.value,
+                      })
+                    }
+                    placeholder="e.g. t3.medium / Physical Machine"
+                    disabled={endpointFormLoading}
+                  />
+
+                </div>
+
+              </div>
+
+
+              {endpointFormError && (
+
+                <div className="endpoint-form-error">
+
+                  <span>
+                    !
+                  </span>
+
+                  <p>
+                    {endpointFormError}
+                  </p>
+
+                </div>
+
+              )}
+
+
+              <div className="endpoint-modal-footer">
+
+                <button
+                  type="button"
+                  className="endpoint-cancel-button"
+                  disabled={endpointFormLoading}
+                  onClick={() => {
+
+                    setShowAddEndpoint(false);
+                    setEndpointFormError("");
+
+                  }}
+                >
+                  Cancel
+                </button>
+
+
+                <button
+                  type="submit"
+                  className="endpoint-submit-button"
+                  disabled={endpointFormLoading}
+                >
+
+                  {endpointFormLoading ? (
+
+                    <>
+                      <span className="endpoint-spinner"></span>
+                      Adding Endpoint...
+                    </>
+
+                  ) : (
+
+                    <>
+                      <span>+</span>
+                      Add Endpoint
+                    </>
+
+                  )}
+
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
+
+        </div>
+
+      )}
 
 
       <main className="dashboard">
