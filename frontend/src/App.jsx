@@ -18,6 +18,9 @@ import "./App.css";
 // API CONFIGURATION
 // =====================================================
 
+const LOGIN_URL =
+  "http://localhost:5000/api/auth/login";
+
 const API_URL =
   "http://localhost:5000/api/monitoring/summary";
 
@@ -32,6 +35,394 @@ const HISTORY_URL =
 
 
 // =====================================================
+// LOGIN PAGE
+// =====================================================
+
+function LoginPage({ onLogin }) {
+
+  const [email, setEmail] =
+    useState("");
+
+  const [password, setPassword] =
+    useState("");
+
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+
+  // ===================================================
+  // HANDLE LOGIN
+  // ===================================================
+
+  const handleLogin = async (event) => {
+
+    event.preventDefault();
+
+    setError("");
+
+
+    // -----------------------------------------------
+    // BASIC VALIDATION
+    // -----------------------------------------------
+
+    if (!email.trim() || !password) {
+
+      setError(
+        "Please enter your email and password."
+      );
+
+      return;
+    }
+
+
+    try {
+
+      setLoading(true);
+
+
+      // -----------------------------------------------
+      // LOGIN REQUEST
+      // -----------------------------------------------
+
+      const response =
+        await axios.post(
+          LOGIN_URL,
+          {
+            email: email.trim(),
+            password,
+          }
+        );
+
+
+      // -----------------------------------------------
+      // GET LOGIN RESULT
+      // -----------------------------------------------
+
+      const result =
+        response.data?.data;
+
+
+      // -----------------------------------------------
+      // VALIDATE TOKEN
+      // -----------------------------------------------
+
+      if (!result?.token) {
+
+        throw new Error(
+          "Login response did not contain a valid token."
+        );
+
+      }
+
+
+      // -----------------------------------------------
+      // STORE JWT
+      // -----------------------------------------------
+
+      localStorage.setItem(
+        "token",
+        result.token
+      );
+
+
+      // -----------------------------------------------
+      // STORE USER INFORMATION
+      // -----------------------------------------------
+
+      if (result.user) {
+
+        localStorage.setItem(
+          "user",
+          JSON.stringify(
+            result.user
+          )
+        );
+
+      }
+
+
+      // -----------------------------------------------
+      // LOGIN SUCCESS
+      // -----------------------------------------------
+
+      onLogin(
+        result.user || null
+      );
+
+
+    } catch (err) {
+
+      console.error(
+        "Login Error:",
+        err
+      );
+
+
+      setError(
+        err.response?.data?.message ||
+        err.message ||
+        "Unable to login. Please check your credentials."
+      );
+
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  };
+
+
+  // ===================================================
+  // LOGIN UI
+  // ===================================================
+
+  return (
+
+    <div className="login-page">
+
+      <div className="login-background-glow"></div>
+
+
+      <div className="login-card">
+
+
+        {/* =================================================
+            LOGO
+        ================================================= */}
+
+        <div className="login-logo">
+          CWX
+        </div>
+
+
+        {/* =================================================
+            BRAND
+        ================================================= */}
+
+        <div className="login-header">
+
+          <h1>
+            CloudWatchX
+          </h1>
+
+          <p>
+            Infrastructure Monitoring Platform
+          </p>
+
+        </div>
+
+
+        <div className="login-divider"></div>
+
+
+        {/* =================================================
+            LOGIN FORM
+        ================================================= */}
+
+        <form
+          className="login-form"
+          onSubmit={handleLogin}
+        >
+
+
+          <div className="login-title">
+
+            <span>
+              SECURE ACCESS
+            </span>
+
+            <h2>
+              Sign in to your account
+            </h2>
+
+            <p>
+              Enter your credentials to access
+              the monitoring dashboard.
+            </p>
+
+          </div>
+
+
+          {/* =================================================
+              EMAIL
+          ================================================= */}
+
+          <div className="form-group">
+
+            <label htmlFor="login-email">
+              Email Address
+            </label>
+
+            <input
+              id="login-email"
+              type="email"
+              value={email}
+              onChange={(event) =>
+                setEmail(
+                  event.target.value
+                )
+              }
+              placeholder="Enter your email"
+              autoComplete="email"
+              disabled={loading}
+            />
+
+          </div>
+
+
+          {/* =================================================
+              PASSWORD
+          ================================================= */}
+
+          <div className="form-group">
+
+            <label htmlFor="login-password">
+              Password
+            </label>
+
+
+            <div className="password-wrapper">
+
+              <input
+                id="login-password"
+                type={
+                  showPassword
+                    ? "text"
+                    : "password"
+                }
+                value={password}
+                onChange={(event) =>
+                  setPassword(
+                    event.target.value
+                  )
+                }
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                disabled={loading}
+              />
+
+
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() =>
+                  setShowPassword(
+                    (current) =>
+                      !current
+                  )
+                }
+                disabled={loading}
+                aria-label={
+                  showPassword
+                    ? "Hide password"
+                    : "Show password"
+                }
+              >
+
+                {showPassword
+                  ? "HIDE"
+                  : "SHOW"}
+
+              </button>
+
+            </div>
+
+          </div>
+
+
+          {/* =================================================
+              LOGIN ERROR
+          ================================================= */}
+
+          {error && (
+
+            <div className="login-error">
+
+              <span className="login-error-icon">
+                !
+              </span>
+
+
+              <div>
+
+                <strong>
+                  Login failed
+                </strong>
+
+                <p>
+                  {error}
+                </p>
+
+              </div>
+
+            </div>
+
+          )}
+
+
+          {/* =================================================
+              LOGIN BUTTON
+          ================================================= */}
+
+          <button
+            type="submit"
+            className="login-button"
+            disabled={loading}
+          >
+
+            {loading ? (
+
+              <>
+                <span className="login-spinner"></span>
+
+                Signing in...
+              </>
+
+            ) : (
+
+              "Sign In"
+
+            )}
+
+          </button>
+
+
+        </form>
+
+
+        {/* =================================================
+            SECURITY INFORMATION
+        ================================================= */}
+
+        <div className="login-security">
+
+          <span className="security-dot"></span>
+
+          <span>
+            JWT secured authentication
+          </span>
+
+        </div>
+
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+
+// =====================================================
 // HEALTH STATUS
 // =====================================================
 
@@ -41,24 +432,57 @@ const getHealthStatus = (
   critical
 ) => {
 
-  if (value >= critical) {
+  const numericValue =
+    Number(value);
+
+
+  if (!Number.isFinite(numericValue)) {
+
     return {
-      label: "CRITICAL",
-      className: "critical",
+
+      label: "UNAVAILABLE",
+
+      className: "unavailable",
+
     };
+
   }
 
-  if (value >= warning) {
+
+  if (numericValue >= critical) {
+
     return {
-      label: "WARNING",
-      className: "warning",
+
+      label: "CRITICAL",
+
+      className: "critical",
+
     };
+
   }
+
+
+  if (numericValue >= warning) {
+
+    return {
+
+      label: "WARNING",
+
+      className: "warning",
+
+    };
+
+  }
+
 
   return {
+
     label: "NORMAL",
+
     className: "normal",
+
   };
+
 };
 
 
@@ -69,10 +493,16 @@ const getHealthStatus = (
 const formatAlertTime = (date) => {
 
   if (!date) {
+
     return "Unknown time";
+
   }
 
-  return new Date(date).toLocaleString();
+
+  return new Date(
+    date
+  ).toLocaleString();
+
 };
 
 
@@ -82,41 +512,169 @@ const formatAlertTime = (date) => {
 
 function App() {
 
+
+  // ===================================================
+  // AUTHENTICATION STATE
+  // ===================================================
+
+  const [authenticated, setAuthenticated] =
+    useState(
+      Boolean(
+        localStorage.getItem("token")
+      )
+    );
+
+
+  const [loggedInUser, setLoggedInUser] =
+    useState(() => {
+
+      try {
+
+        const storedUser =
+          localStorage.getItem("user");
+
+
+        return storedUser
+          ? JSON.parse(storedUser)
+          : null;
+
+      } catch {
+
+        return null;
+
+      }
+
+    });
+
+
+  // ===================================================
+  // LOGIN SUCCESS
+  // ===================================================
+
+  const handleLogin = (user) => {
+
+    setLoggedInUser(user);
+
+    setAuthenticated(true);
+
+  };
+
+
+  // ===================================================
+  // LOGOUT
+  // ===================================================
+
+  const handleLogout = () => {
+
+    localStorage.removeItem(
+      "token"
+    );
+
+    localStorage.removeItem(
+      "user"
+    );
+
+
+    setLoggedInUser(null);
+
+    setAuthenticated(false);
+
+  };
+
+
+  // ===================================================
+  // METRICS
+  // ===================================================
+
   const [metrics, setMetrics] =
     useState(null);
+
 
   const metricsRequestRef =
     useRef(0);
 
+
+  // ===================================================
+  // HISTORY
+  // ===================================================
+
   const [history, setHistory] =
     useState([]);
+
 
   const historyRequestRef =
     useRef(0);
 
+
+  // ===================================================
+  // ENDPOINTS
+  // ===================================================
+
   const [endpoints, setEndpoints] =
     useState([]);
 
+
   const endpointsRequestRef =
-  useRef(0);
+    useRef(0);
+
 
   const [selectedEndpoint, setSelectedEndpoint] =
     useState(null);
 
+
+  // ===================================================
+  // ACTIVE SIDEBAR SECTION
+  // ===================================================
+
+  const [activeSection, setActiveSection] =
+    useState("overview");
+
+
+  // ===================================================
+  // SIDEBAR NAVIGATION
+  // ===================================================
+
+  const navigateToSection = (sectionId) => {
+
+    setActiveSection(sectionId);
+
+    document
+      .getElementById(sectionId)
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+  };
+
+
+  // ===================================================
+  // ALERTS
+  // ===================================================
+
   const [alerts, setAlerts] =
     useState([]);
+
 
   const alertsRequestRef =
     useRef(0);
 
+
+  // ===================================================
+  // GENERAL STATE
+  // ===================================================
+
   const [loading, setLoading] =
     useState(true);
+
 
   const [error, setError] =
     useState("");
 
+
   const [lastUpdated, setLastUpdated] =
     useState(null);
+
 
   const [alertLoading, setAlertLoading] =
     useState(false);
@@ -133,12 +691,14 @@ function App() {
     const requestId =
       ++metricsRequestRef.current;
 
+
     try {
 
-      setError("");
-
       const token =
-        localStorage.getItem("token");
+        localStorage.getItem(
+          "token"
+        );
+
 
       const server =
         serverOverride ||
@@ -147,15 +707,23 @@ function App() {
 
       if (!server) {
 
-        setMetrics(null);
+        if (
+          requestId ===
+          metricsRequestRef.current
+        ) {
 
-        setError(
-          "Please select a monitoring server."
-        );
+          setMetrics(null);
 
-        setLoading(false);
+          setError(
+            "Please select a monitoring server."
+          );
+
+          setLoading(false);
+
+        }
 
         return;
+
       }
 
 
@@ -163,62 +731,155 @@ function App() {
         await axios.get(
           API_URL,
           {
+
             params: {
               server,
             },
 
             headers: {
+
               Authorization:
                 `Bearer ${token}`,
+
             },
+
           }
         );
 
 
       const data =
-        response.data.data;
+        response.data?.data;
+
+
+      // -----------------------------------------------
+      // DEBUG
+      // -----------------------------------------------
+
+      console.log(
+        "FRONTEND METRICS DATA:",
+        data
+      );
 
 
       if (!data) {
 
-        setMetrics(null);
+        if (
+          requestId ===
+          metricsRequestRef.current
+        ) {
 
-        setError(
-          `Monitoring data is unavailable for server: ${server}`
-        );
+          setMetrics(null);
+
+          setError(
+            `Monitoring data is unavailable for server: ${server}`
+          );
+
+          setLastUpdated(null);
+
+        }
 
         return;
+
       }
 
 
       // -----------------------------------------------
-      // SET CURRENT METRICS
+      // NORMALIZE METRICS
+      // -----------------------------------------------
+
+      const normalizedMetrics = {
+
+        cpu:
+          Number(
+            data.cpu
+          ),
+
+        memory:
+          Number(
+            data.memory
+          ),
+
+        disk:
+          Number(
+            data.disk
+          ),
+
+
+        network: {
+
+          interface:
+            data.network?.interface ||
+            "Network interface unavailable",
+
+          receive:
+            Number(
+              data.network?.receive
+            ),
+
+          send:
+            Number(
+              data.network?.send
+            ),
+
+          unit:
+            data.network?.unit ||
+            "bytes/sec",
+
+        },
+
+
+        uptime: {
+
+          days:
+            Number(
+              data.uptime?.days
+            ),
+
+          hours:
+            Number(
+              data.uptime?.hours
+            ),
+
+          minutes:
+            Number(
+              data.uptime?.minutes
+            ),
+
+          totalSeconds:
+            Number(
+              data.uptime?.totalSeconds
+            ),
+
+        },
+
+      };
+
+
+      // -----------------------------------------------
+      // LATEST REQUEST CHECK
       // -----------------------------------------------
 
       if (
-        requestId ===
+        requestId !==
         metricsRequestRef.current
       ) {
 
-        setMetrics(data);
+        return;
 
       }
 
 
-      // -----------------------------------------------
-      // UPDATE TIME
-      // -----------------------------------------------
+      setMetrics(
+        normalizedMetrics
+      );
 
-      if (
-        requestId ===
-        metricsRequestRef.current
-      ) {
 
-        setLastUpdated(
-          new Date()
-        );
+      setError("");
 
-      }
+
+      setLastUpdated(
+        new Date()
+      );
 
 
     } catch (err) {
@@ -228,19 +889,36 @@ function App() {
         err
       );
 
-      setMetrics(null);
 
-      setError(
-        err.response?.data?.message ||
-        "Unable to fetch monitoring data."
-      );
+      if (
+        requestId ===
+        metricsRequestRef.current
+      ) {
 
-      setLastUpdated(null);
+        setMetrics(null);
+
+
+        setError(
+          err.response?.data?.message ||
+          "Unable to fetch monitoring data."
+        );
+
+
+        setLastUpdated(null);
+
+      }
 
 
     } finally {
 
-      setLoading(false);
+      if (
+        requestId ===
+        metricsRequestRef.current
+      ) {
+
+        setLoading(false);
+
+      }
 
     }
 
@@ -248,7 +926,7 @@ function App() {
 
 
   // ===================================================
-  // FETCH PERSISTENT MONITORING HISTORY
+  // FETCH MONITORING HISTORY
   // ===================================================
 
   const fetchHistory = async (
@@ -258,10 +936,14 @@ function App() {
     const requestId =
       ++historyRequestRef.current;
 
+
     try {
 
       const token =
-        localStorage.getItem("token");
+        localStorage.getItem(
+          "token"
+        );
+
 
       const server =
         serverOverride ||
@@ -270,7 +952,14 @@ function App() {
 
       if (!server) {
 
-        setHistory([]);
+        if (
+          requestId ===
+          historyRequestRef.current
+        ) {
+
+          setHistory([]);
+
+        }
 
         return;
 
@@ -281,25 +970,26 @@ function App() {
         await axios.get(
           HISTORY_URL,
           {
+
             params: {
               server,
             },
 
             headers: {
+
               Authorization:
                 `Bearer ${token}`,
+
             },
+
           }
         );
 
 
       const historyData =
-        response.data.data || [];
+        response.data?.data ||
+        [];
 
-
-      // -----------------------------------------------
-      // CONVERT MONGODB HISTORY TO CHART DATA
-      // -----------------------------------------------
 
       const formattedHistory =
         historyData.map(
@@ -314,36 +1004,32 @@ function App() {
 
             cpu:
               Number(
-                record.cpu || 0
+                record.cpu ?? 0
               ),
 
             memory:
               Number(
-                record.memory || 0
+                record.memory ?? 0
               ),
 
             disk:
               Number(
-                record.disk || 0
+                record.disk ?? 0
               ),
 
             receive:
               Number(
-                record.networkReceive || 0
+                record.networkReceive ?? 0
               ),
 
             send:
               Number(
-                record.networkSend || 0
+                record.networkSend ?? 0
               ),
 
           })
         );
 
-
-      // -----------------------------------------------
-      // DISPLAY LATEST 30 RECORDS
-      // -----------------------------------------------
 
       if (
         requestId ===
@@ -364,7 +1050,15 @@ function App() {
         err
       );
 
-      setHistory([]);
+
+      if (
+        requestId ===
+        historyRequestRef.current
+      ) {
+
+        setHistory([]);
+
+      }
 
     }
 
@@ -376,34 +1070,53 @@ function App() {
   // ===================================================
 
   const fetchEndpoints = async () => {
-      const requestId = ++endpointsRequestRef.current;
+
+    const requestId =
+      ++endpointsRequestRef.current;
+
+
     try {
 
       const token =
-        localStorage.getItem("token");
+        localStorage.getItem(
+          "token"
+        );
 
 
       const response =
         await axios.get(
           ENDPOINTS_URL,
           {
+
             headers: {
+
               Authorization:
                 `Bearer ${token}`,
+
             },
+
           }
         );
 
 
       const endpointData =
-        response.data.data || [];
+        response.data?.data ||
+        [];
 
 
-      if (requestId !== endpointsRequestRef.current) {
-          return;
+      if (
+        requestId !==
+        endpointsRequestRef.current
+      ) {
+
+        return;
+
       }
 
-      setEndpoints(endpointData);
+
+      setEndpoints(
+        endpointData
+      );
 
 
       // -----------------------------------------------
@@ -454,11 +1167,19 @@ function App() {
         err
       );
 
-      setEndpoints([]);
 
-      setError(
-        "Unable to load monitoring endpoints."
-      );
+      if (
+        requestId ===
+        endpointsRequestRef.current
+      ) {
+
+        setEndpoints([]);
+
+        setError(
+          "Unable to load monitoring endpoints."
+        );
+
+      }
 
     }
 
@@ -476,10 +1197,14 @@ function App() {
     const requestId =
       ++alertsRequestRef.current;
 
+
     try {
 
       const token =
-        localStorage.getItem("token");
+        localStorage.getItem(
+          "token"
+        );
+
 
       const server =
         serverOverride ||
@@ -488,7 +1213,14 @@ function App() {
 
       if (!server) {
 
-        setAlerts([]);
+        if (
+          requestId ===
+          alertsRequestRef.current
+        ) {
+
+          setAlerts([]);
+
+        }
 
         return;
 
@@ -502,14 +1234,18 @@ function App() {
         await axios.get(
           `${ALERTS_URL}/active`,
           {
+
             params: {
               server,
             },
 
             headers: {
+
               Authorization:
                 `Bearer ${token}`,
+
             },
+
           }
         );
 
@@ -520,7 +1256,8 @@ function App() {
       ) {
 
         setAlerts(
-          response.data.data || []
+          response.data?.data ||
+          []
         );
 
       }
@@ -533,11 +1270,27 @@ function App() {
         err
       );
 
-      setAlerts([]);
+
+      if (
+        requestId ===
+        alertsRequestRef.current
+      ) {
+
+        setAlerts([]);
+
+      }
+
 
     } finally {
 
-      setAlertLoading(false);
+      if (
+        requestId ===
+        alertsRequestRef.current
+      ) {
+
+        setAlertLoading(false);
+
+      }
 
     }
 
@@ -555,22 +1308,30 @@ function App() {
     try {
 
       const token =
-        localStorage.getItem("token");
+        localStorage.getItem(
+          "token"
+        );
 
 
       await axios.put(
         `${ALERTS_URL}/${alertId}/resolve`,
         {},
         {
+
           headers: {
+
             Authorization:
               `Bearer ${token}`,
+
           },
+
         }
       );
 
 
-      fetchAlerts();
+      fetchAlerts(
+        selectedEndpoint?.serverName
+      );
 
 
     } catch (err) {
@@ -591,6 +1352,13 @@ function App() {
 
   useEffect(() => {
 
+    if (!authenticated) {
+
+      return;
+
+    }
+
+
     fetchEndpoints();
 
 
@@ -610,7 +1378,7 @@ function App() {
         endpointInterval
       );
 
-  }, []);
+  }, [authenticated]);
 
 
   // ===================================================
@@ -619,12 +1387,34 @@ function App() {
 
   useEffect(() => {
 
-    if (!selectedEndpoint) {
+    if (!authenticated) {
+
       return;
+
     }
 
 
-    // Clear previous server data
+    if (!selectedEndpoint) {
+
+      return;
+
+    }
+
+
+    // -----------------------------------------------
+    // INVALIDATE PREVIOUS REQUESTS
+    // -----------------------------------------------
+
+    ++metricsRequestRef.current;
+
+    ++historyRequestRef.current;
+
+    ++alertsRequestRef.current;
+
+
+    // -----------------------------------------------
+    // CLEAR PREVIOUS SERVER DATA
+    // -----------------------------------------------
 
     setHistory([]);
 
@@ -633,6 +1423,8 @@ function App() {
     setAlerts([]);
 
     setError("");
+
+    setLastUpdated(null);
 
 
     const server =
@@ -711,7 +1503,104 @@ function App() {
 
     };
 
-  }, [selectedEndpoint]);
+  }, [
+    authenticated,
+    selectedEndpoint
+  ]);
+
+
+  // ===================================================
+  // SIDEBAR ACTIVE SECTION TRACKING
+  // ===================================================
+
+  useEffect(() => {
+
+    if (!authenticated) {
+      return;
+    }
+
+    const sectionIds = [
+      "overview",
+      "performance",
+      "network",
+      "alerts",
+      "history",
+    ];
+
+    const sections =
+      sectionIds
+        .map((id) =>
+          document.getElementById(id)
+        )
+        .filter(Boolean);
+
+    if (sections.length === 0) {
+      return;
+    }
+
+    const observer =
+      new IntersectionObserver(
+        (entries) => {
+
+          const visibleSections =
+            entries
+              .filter(
+                (entry) =>
+                  entry.isIntersecting
+              )
+              .sort(
+                (a, b) =>
+                  a.boundingClientRect.top -
+                  b.boundingClientRect.top
+              );
+
+          if (
+            visibleSections.length > 0
+          ) {
+
+            setActiveSection(
+              visibleSections[0].target.id
+            );
+
+          }
+
+        },
+        {
+          root: null,
+          rootMargin:
+            "-110px 0px -55% 0px",
+          threshold: 0,
+        }
+      );
+
+    sections.forEach(
+      (section) =>
+        observer.observe(section)
+    );
+
+    return () => {
+      observer.disconnect();
+    };
+
+  }, [authenticated]);
+
+
+
+  // ===================================================
+  // AUTHENTICATION UI
+  // ===================================================
+
+  if (!authenticated) {
+
+    return (
+
+      <LoginPage
+        onLogin={handleLogin}
+      />
+
+    );
+
+  }
 
 
   // ===================================================
@@ -806,14 +1695,16 @@ function App() {
   const criticalAlerts =
     alerts.filter(
       (alert) =>
-        alert.severity === "Critical"
+        alert.severity ===
+        "Critical"
     ).length;
 
 
   const warningAlerts =
     alerts.filter(
       (alert) =>
-        alert.severity === "Warning"
+        alert.severity ===
+        "Warning"
     ).length;
 
 
@@ -826,40 +1717,363 @@ function App() {
     <div className="app">
 
 
+
       {/* =================================================
-          HEADER
+          PREMIUM SIDEBAR
       ================================================= */}
 
-      <header className="header">
+      <aside className="cloudwatch-sidebar">
 
-        <div className="brand">
+        <div className="sidebar-brand">
 
-          <div className="brand-logo">
+          <div className="sidebar-logo">
             CWX
           </div>
 
           <div>
+            <strong>CloudWatchX</strong>
+            <span>Infrastructure</span>
+          </div>
 
-            <h1>
-              CloudWatchX
-            </h1>
+        </div>
 
-            <p>
-              Infrastructure Monitoring Platform
-            </p>
+
+        <div className="sidebar-group">
+
+          <span className="sidebar-group-title">
+            MONITORING
+          </span>
+
+
+          <button
+            className={`sidebar-nav-item ${
+              activeSection === "overview"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              navigateToSection("overview")
+            }
+          >
+            <span className="sidebar-nav-icon">◉</span>
+            <span>Overview</span>
+          </button>
+
+
+          <button
+            className={`sidebar-nav-item ${
+              activeSection === "performance"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              navigateToSection("performance")
+            }
+          >
+            <span className="sidebar-nav-icon">◫</span>
+            <span>Performance</span>
+          </button>
+
+
+          <button
+            className={`sidebar-nav-item ${
+              activeSection === "network"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              navigateToSection("network")
+            }
+          >
+            <span className="sidebar-nav-icon">⇅</span>
+            <span>Network</span>
+          </button>
+
+
+          <button
+            className={`sidebar-nav-item ${
+              activeSection === "alerts"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              navigateToSection("alerts")
+            }
+          >
+            <span className="sidebar-nav-icon">!</span>
+            <span>Alerts</span>
+
+            {alerts.length > 0 && (
+              <span className="sidebar-alert-count">
+                {alerts.length}
+              </span>
+            )}
+
+          </button>
+
+
+          <button
+            className={`sidebar-nav-item ${
+              activeSection === "history"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              navigateToSection("history")
+            }
+          >
+            <span className="sidebar-nav-icon">◒</span>
+            <span>History</span>
+          </button>
+
+        </div>
+
+
+        <div className="sidebar-group sidebar-servers">
+
+          <div className="sidebar-server-heading">
+
+            <span className="sidebar-group-title">
+              MONITORED SERVERS
+            </span>
+
+            <span className="sidebar-server-total">
+              {endpoints.length}
+            </span>
+
+          </div>
+
+
+          <div className="sidebar-server-list">
+
+            {endpoints.length === 0 ? (
+
+              <div className="sidebar-empty">
+                No servers
+              </div>
+
+            ) : (
+
+              endpoints.map((server) => {
+
+                const isOnline =
+                  String(
+                    server.status || ""
+                  ).toLowerCase() === "online";
+
+                const isSelected =
+                  selectedEndpoint?._id === server._id;
+
+                return (
+
+                  <button
+                    key={
+                      server._id ||
+                      server.id ||
+                      server.ipAddress
+                    }
+                    className={`sidebar-server-item ${
+                      isSelected ? "selected" : ""
+                    }`}
+                    title={`Monitor ${server.serverName || "server"}`}
+                    onClick={() => {
+
+                      setSelectedEndpoint(server);
+
+                      setActiveSection(
+                        "performance"
+                      );
+
+                      requestAnimationFrame(() => {
+                        document
+                          .getElementById("performance")
+                          ?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                      });
+
+                    }}
+                  >
+
+                    <span
+                      className={`sidebar-server-status ${
+                        isOnline ? "online" : "offline"
+                      }`}
+                    ></span>
+
+
+                    <span className="sidebar-server-info">
+
+                      <strong>
+                        {
+                          server.serverName ||
+                          "Unnamed Server"
+                        }
+                      </strong>
+
+                      <small>
+                        {server.cloudProvider || "Local"}
+                      </small>
+
+                    </span>
+
+
+                    {isSelected && (
+                      <span className="sidebar-selected-mark">
+                        ✓
+                      </span>
+                    )}
+
+                  </button>
+
+                );
+
+              })
+
+            )}
 
           </div>
 
         </div>
 
 
-        <div className="header-live">
+        {selectedEndpoint && (
 
-          <span className="live-dot"></span>
+          <div className="sidebar-current-server">
 
-          <span>
-            Monitoring Live
+            <span>
+              CURRENT SERVER
+            </span>
+
+            <strong>
+              {selectedEndpoint.serverName}
+            </strong>
+
+            <small>
+              {selectedEndpoint.ipAddress}
+            </small>
+
+            <div className="sidebar-current-status">
+
+              <span
+                className={
+                  String(
+                    selectedEndpoint.status || ""
+                  ).toLowerCase() === "online"
+                    ? "online-dot"
+                    : "offline-dot"
+                }
+              ></span>
+
+              {String(
+                selectedEndpoint.status || ""
+              ).toLowerCase() === "online"
+                ? "Monitoring active"
+                : "Server offline"}
+
+            </div>
+
+          </div>
+
+        )}
+
+      </aside>
+
+      {/* =================================================
+          HEADER
+      ================================================= */}
+
+      <header className="header">
+
+        <div className="header-context">
+
+          <span className="header-context-label">
+            INFRASTRUCTURE MONITORING
           </span>
+
+          <span className="header-context-divider">
+            /
+          </span>
+
+          <span className="header-context-current">
+            Live Dashboard
+          </span>
+
+        </div>
+
+
+        {/* =================================================
+            HEADER ACTIONS
+        ================================================= */}
+
+        <div className="header-actions">
+
+
+          {/* USER */}
+
+          {loggedInUser && (
+
+            <div className="user-info">
+
+              <span className="user-avatar">
+
+                {String(
+                  loggedInUser.name ||
+                  "U"
+                )
+                  .charAt(0)
+                  .toUpperCase()}
+
+              </span>
+
+
+              <div className="user-details">
+
+                <strong>
+                  {
+                    loggedInUser.name ||
+                    "User"
+                  }
+                </strong>
+
+                <small>
+                  {
+                    loggedInUser.email
+                  }
+                </small>
+
+              </div>
+
+            </div>
+
+          )}
+
+
+          {/* LIVE STATUS */}
+
+          <div className="header-live">
+
+            <span className="live-dot"></span>
+
+            <span>
+              Monitoring Live
+            </span>
+
+          </div>
+
+
+          {/* LOGOUT */}
+
+          <button
+            className="logout-button"
+            onClick={
+              handleLogout
+            }
+          >
+            Logout
+          </button>
+
 
         </div>
 
@@ -873,7 +2087,7 @@ function App() {
             TOP OVERVIEW
         ================================================= */}
 
-        <section className="dashboard-intro">
+        <section id="overview" className="dashboard-intro">
 
           <div>
 
@@ -1065,7 +2279,7 @@ function App() {
             METRIC CARDS
         ================================================= */}
 
-        <section>
+        <section id="performance">
 
           <div className="section-heading">
 
@@ -1081,10 +2295,6 @@ function App() {
 
             </div>
 
-
-            {/* =================================================
-                LIVE MONITORING STATUS
-            ================================================= */}
 
             <div className="last-updated">
 
@@ -1111,10 +2321,6 @@ function App() {
 
           </div>
 
-
-          {/* =================================================
-              METRICS GRID
-          ================================================= */}
 
           <div className="metrics-grid">
 
@@ -1150,10 +2356,11 @@ function App() {
 
                 <strong>
 
-                  {metrics
-                    ? `${Number(
-                        metrics.cpu
-                      ).toFixed(2)}%`
+                  {metrics &&
+                  Number.isFinite(
+                    metrics.cpu
+                  )
+                    ? `${metrics.cpu.toFixed(2)}%`
                     : "--"}
 
                 </strong>
@@ -1181,7 +2388,12 @@ function App() {
                   style={{
                     width:
                       `${Math.min(
-                        metrics?.cpu || 0,
+                        Math.max(
+                          Number(
+                            metrics?.cpu || 0
+                          ),
+                          0
+                        ),
                         100
                       )}%`,
                   }}
@@ -1228,10 +2440,11 @@ function App() {
 
                 <strong>
 
-                  {metrics
-                    ? `${Number(
-                        metrics.memory
-                      ).toFixed(2)}%`
+                  {metrics &&
+                  Number.isFinite(
+                    metrics.memory
+                  )
+                    ? `${metrics.memory.toFixed(2)}%`
                     : "--"}
 
                 </strong>
@@ -1259,7 +2472,12 @@ function App() {
                   style={{
                     width:
                       `${Math.min(
-                        metrics?.memory || 0,
+                        Math.max(
+                          Number(
+                            metrics?.memory || 0
+                          ),
+                          0
+                        ),
                         100
                       )}%`,
                   }}
@@ -1306,10 +2524,11 @@ function App() {
 
                 <strong>
 
-                  {metrics
-                    ? `${Number(
-                        metrics.disk
-                      ).toFixed(2)}%`
+                  {metrics &&
+                  Number.isFinite(
+                    metrics.disk
+                  )
+                    ? `${metrics.disk.toFixed(2)}%`
                     : "--"}
 
                 </strong>
@@ -1337,7 +2556,12 @@ function App() {
                   style={{
                     width:
                       `${Math.min(
-                        metrics?.disk || 0,
+                        Math.max(
+                          Number(
+                            metrics?.disk || 0
+                          ),
+                          0
+                        ),
                         100
                       )}%`,
                   }}
@@ -1382,7 +2606,16 @@ function App() {
 
               <div className="uptime-value">
 
-                {metrics?.uptime
+                {metrics?.uptime &&
+                Number.isFinite(
+                  metrics.uptime.days
+                ) &&
+                Number.isFinite(
+                  metrics.uptime.hours
+                ) &&
+                Number.isFinite(
+                  metrics.uptime.minutes
+                )
                   ? `${metrics.uptime.days}d ${metrics.uptime.hours}h ${metrics.uptime.minutes}m`
                   : "--"}
 
@@ -1414,7 +2647,7 @@ function App() {
             ALERTS
         ================================================= */}
 
-        <section className="alerts-section">
+        <section id="alerts" className="alerts-section">
 
           <div className="section-heading">
 
@@ -1583,7 +2816,7 @@ function App() {
             NETWORK
         ================================================= */}
 
-        <section className="network-card">
+        <section id="network" className="network-card">
 
           <div className="network-header">
 
@@ -1634,10 +2867,11 @@ function App() {
 
               <strong>
 
-                {metrics
-                  ? Number(
-                      metrics.network?.receive || 0
-                    ).toFixed(2)
+                {metrics &&
+                Number.isFinite(
+                  metrics.network?.receive
+                )
+                  ? metrics.network.receive.toFixed(2)
                   : "--"}
 
               </strong>
@@ -1657,10 +2891,11 @@ function App() {
 
               <strong>
 
-                {metrics
-                  ? Number(
-                      metrics.network?.send || 0
-                    ).toFixed(2)
+                {metrics &&
+                Number.isFinite(
+                  metrics.network?.send
+                )
+                  ? metrics.network.send.toFixed(2)
                   : "--"}
 
               </strong>
@@ -1680,7 +2915,7 @@ function App() {
             HISTORY
         ================================================= */}
 
-        <section className="charts-section">
+        <section id="history" className="charts-section">
 
           <div className="section-heading">
 
@@ -2031,7 +3266,8 @@ function App() {
 
 
                   const isOnline =
-                    serverStatus === "online";
+                    serverStatus ===
+                    "online";
 
 
                   const isSelected =

@@ -7,10 +7,6 @@ const monitoringHistoryService = require("../services/monitoringHistory.service"
 // METRIC VALUE VALIDATION
 // =====================================================
 
-const isValidMetricValue = (value) => {
-    return Number.isFinite(Number(value));
-};
-
 const isValidPercentage = (value) => {
     const numericValue = Number(value);
 
@@ -20,6 +16,7 @@ const isValidPercentage = (value) => {
         numericValue <= 100
     );
 };
+
 
 const isValidNonNegativeValue = (value) => {
     const numericValue = Number(value);
@@ -32,7 +29,7 @@ const isValidNonNegativeValue = (value) => {
 
 
 // =====================================================
-// Check Metric Threshold And Create Alert
+// CHECK METRIC THRESHOLD AND CREATE ALERT
 // =====================================================
 
 const checkAndCreateAlert = async (
@@ -44,47 +41,85 @@ const checkAndCreateAlert = async (
     let severity = null;
     let message = "";
 
+
+    // =============================================
+    // CPU
+    // =============================================
+
     if (metric === "CPU") {
 
         if (value >= 85) {
+
             severity = "Critical";
+
             message =
                 "CPU usage exceeded critical threshold";
+
         } else if (value >= 70) {
+
             severity = "Warning";
+
             message =
                 "CPU usage exceeded warning threshold";
+
         }
 
     }
+
+
+    // =============================================
+    // MEMORY
+    // =============================================
 
     if (metric === "Memory") {
 
         if (value >= 85) {
+
             severity = "Critical";
+
             message =
                 "Memory usage exceeded critical threshold";
+
         } else if (value >= 75) {
+
             severity = "Warning";
+
             message =
                 "Memory usage exceeded warning threshold";
+
         }
 
     }
+
+
+    // =============================================
+    // DISK
+    // =============================================
 
     if (metric === "Disk") {
 
         if (value >= 90) {
+
             severity = "Critical";
+
             message =
                 "Disk usage exceeded critical threshold";
+
         } else if (value >= 80) {
+
             severity = "Warning";
+
             message =
                 "Disk usage exceeded warning threshold";
+
         }
 
     }
+
+
+    // =============================================
+    // NORMAL CONDITION
+    // =============================================
 
     if (!severity) {
 
@@ -94,20 +129,33 @@ const checkAndCreateAlert = async (
         );
 
         return null;
+
     }
 
+
+    // =============================================
+    // CREATE OR GET ACTIVE ALERT
+    // =============================================
+
     return await alertService.createOrGetAlert({
+
         serverName,
+
         metric,
+
         value,
+
         severity,
+
         message,
+
     });
+
 };
 
 
 // =====================================================
-// CPU Usage
+// CPU USAGE
 // =====================================================
 
 const getCPUUsage = async (req, res) => {
@@ -116,19 +164,26 @@ const getCPUUsage = async (req, res) => {
 
         const { server } = req.query;
 
+
         if (!server) {
 
             return res.status(400).json({
+
                 success: false,
+
                 message:
                     "Server name is required.",
+
                 data: null,
+
             });
 
         }
 
+
         const cpu =
             await prometheusService.queryPrometheus(
+
                 `100 - (
                     avg by(instance) (
                         rate(
@@ -139,24 +194,35 @@ const getCPUUsage = async (req, res) => {
                         )
                     ) * 100
                 )`
+
             );
 
+
         if (
+
             !cpu ||
+
             cpu.length === 0 ||
+
             !isValidPercentage(
                 cpu[0]?.value?.[1]
             )
+
         ) {
 
             return res.status(404).json({
+
                 success: false,
+
                 message:
                     `CPU metrics are unavailable for server: ${server}`,
+
                 data: null,
+
             });
 
         }
+
 
         res.status(200).json({
 
@@ -180,12 +246,14 @@ const getCPUUsage = async (req, res) => {
 
         });
 
+
     } catch (error) {
 
         console.error(
             "CPU Monitoring Error:",
             error
         );
+
 
         res.status(500).json({
 
@@ -204,7 +272,7 @@ const getCPUUsage = async (req, res) => {
 
 
 // =====================================================
-// Memory Usage
+// MEMORY USAGE
 // =====================================================
 
 const getMemoryUsage = async (req, res) => {
@@ -213,19 +281,26 @@ const getMemoryUsage = async (req, res) => {
 
         const { server } = req.query;
 
+
         if (!server) {
 
             return res.status(400).json({
+
                 success: false,
+
                 message:
                     "Server name is required.",
+
                 data: null,
+
             });
 
         }
 
+
         const memory =
             await prometheusService.queryPrometheus(
+
                 `100 * (
                     1 - (
                         windows_memory_available_bytes{
@@ -237,26 +312,39 @@ const getMemoryUsage = async (req, res) => {
                         }
                     )
                 )`
+
             );
 
+
         if (
+
             !memory ||
+
             memory.length === 0 ||
+
             !isValidPercentage(
                 memory[0]?.value?.[1]
             )
+
         ) {
 
             return res.status(404).json({
+
                 success: false,
+
                 message:
                     `Memory metrics are unavailable for server: ${server}`,
+
                 data: null,
+
             });
 
         }
 
-        const result = memory[0];
+
+        const result =
+            memory[0];
+
 
         res.status(200).json({
 
@@ -280,12 +368,14 @@ const getMemoryUsage = async (req, res) => {
 
         });
 
+
     } catch (error) {
 
         console.error(
             "Memory Monitoring Error:",
             error
         );
+
 
         res.status(500).json({
 
@@ -304,7 +394,7 @@ const getMemoryUsage = async (req, res) => {
 
 
 // =====================================================
-// Disk Usage
+// DISK USAGE
 // =====================================================
 
 const getDiskUsage = async (req, res) => {
@@ -313,19 +403,26 @@ const getDiskUsage = async (req, res) => {
 
         const { server } = req.query;
 
+
         if (!server) {
 
             return res.status(400).json({
+
                 success: false,
+
                 message:
                     "Server name is required.",
+
                 data: null,
+
             });
 
         }
 
+
         const disk =
             await prometheusService.queryPrometheus(
+
                 `100 * (
                     1 - (
                         windows_logical_disk_free_bytes{
@@ -339,26 +436,39 @@ const getDiskUsage = async (req, res) => {
                         }
                     )
                 )`
+
             );
 
+
         if (
+
             !disk ||
+
             disk.length === 0 ||
+
             !isValidPercentage(
                 disk[0]?.value?.[1]
             )
+
         ) {
 
             return res.status(404).json({
+
                 success: false,
+
                 message:
                     `Disk metrics are unavailable for server: ${server}`,
+
                 data: null,
+
             });
 
         }
 
-        const result = disk[0];
+
+        const result =
+            disk[0];
+
 
         res.status(200).json({
 
@@ -384,12 +494,14 @@ const getDiskUsage = async (req, res) => {
 
         });
 
+
     } catch (error) {
 
         console.error(
             "Disk Monitoring Error:",
             error
         );
+
 
         res.status(500).json({
 
@@ -408,7 +520,7 @@ const getDiskUsage = async (req, res) => {
 
 
 // =====================================================
-// Network Usage
+// NETWORK USAGE
 // =====================================================
 
 const getNetworkUsage = async (req, res) => {
@@ -417,56 +529,80 @@ const getNetworkUsage = async (req, res) => {
 
         const { server } = req.query;
 
+
         if (!server) {
 
             return res.status(400).json({
+
                 success: false,
+
                 message:
                     "Server name is required.",
+
                 data: null,
+
             });
 
         }
 
+
         const receive =
             await prometheusService.queryPrometheus(
+
                 `rate(
                     windows_net_bytes_received_total{
                         server="${server}"
                     }[2m]
                 )`
+
             );
+
 
         const send =
             await prometheusService.queryPrometheus(
+
                 `rate(
                     windows_net_bytes_sent_total{
                         server="${server}"
                     }[2m]
                 )`
+
             );
 
+
         if (
+
             !receive ||
+
             receive.length === 0 ||
+
             !send ||
+
             send.length === 0 ||
+
             !isValidNonNegativeValue(
                 receive[0]?.value?.[1]
             ) ||
+
             !isValidNonNegativeValue(
                 send[0]?.value?.[1]
             )
+
         ) {
 
             return res.status(404).json({
+
                 success: false,
+
                 message:
                     `Network metrics are unavailable for server: ${server}`,
+
                 data: null,
+
             });
 
         }
+
 
         res.status(200).json({
 
@@ -494,12 +630,14 @@ const getNetworkUsage = async (req, res) => {
                     ).toFixed(2)
                 ),
 
-            unit: "bytes/sec",
+            unit:
+                "bytes/sec",
 
             timestamp:
                 receive[0].value[0],
 
         });
+
 
     } catch (error) {
 
@@ -507,6 +645,7 @@ const getNetworkUsage = async (req, res) => {
             "Network Monitoring Error:",
             error
         );
+
 
         res.status(500).json({
 
@@ -525,7 +664,7 @@ const getNetworkUsage = async (req, res) => {
 
 
 // =====================================================
-// System Uptime
+// SYSTEM UPTIME
 // =====================================================
 
 const getUptime = async (req, res) => {
@@ -534,61 +673,83 @@ const getUptime = async (req, res) => {
 
         const { server } = req.query;
 
+
         if (!server) {
 
             return res.status(400).json({
+
                 success: false,
+
                 message:
                     "Server name is required.",
+
                 data: null,
+
             });
 
         }
 
+
         const uptime =
             await prometheusService.queryPrometheus(
+
                 `time() -
                 windows_system_boot_time_timestamp{
                     server="${server}"
                 }`
+
             );
 
+
         if (
+
             !uptime ||
+
             uptime.length === 0 ||
+
             !isValidNonNegativeValue(
                 uptime[0]?.value?.[1]
             )
+
         ) {
 
             return res.status(404).json({
+
                 success: false,
+
                 message:
                     `Uptime metrics are unavailable for server: ${server}`,
+
                 data: null,
+
             });
 
         }
+
 
         const totalSeconds =
             Number(
                 uptime[0].value[1]
             );
 
+
         const days =
             Math.floor(
                 totalSeconds / 86400
             );
+
 
         const hours =
             Math.floor(
                 (totalSeconds % 86400) / 3600
             );
 
+
         const minutes =
             Math.floor(
                 (totalSeconds % 3600) / 60
             );
+
 
         res.status(200).json({
 
@@ -618,12 +779,14 @@ const getUptime = async (req, res) => {
 
         });
 
+
     } catch (error) {
 
         console.error(
             "Uptime Monitoring Error:",
             error
         );
+
 
         res.status(500).json({
 
@@ -642,7 +805,7 @@ const getUptime = async (req, res) => {
 
 
 // =====================================================
-// Monitoring Summary
+// MONITORING SUMMARY
 // =====================================================
 
 const getMonitoringSummary = async (req, res) => {
@@ -650,10 +813,12 @@ const getMonitoringSummary = async (req, res) => {
     try {
 
         // =============================================
-        // Get selected server
+        // GET SELECTED SERVER
         // =============================================
 
-        const { server } = req.query;
+        const { server } =
+            req.query;
+
 
         if (!server) {
 
@@ -670,6 +835,7 @@ const getMonitoringSummary = async (req, res) => {
 
         }
 
+
         console.log(
             `Monitoring request received for: ${server}`
         );
@@ -681,6 +847,7 @@ const getMonitoringSummary = async (req, res) => {
 
         const cpu =
             await prometheusService.queryPrometheus(
+
                 `100 - (
                     avg by(instance) (
                         rate(
@@ -691,15 +858,17 @@ const getMonitoringSummary = async (req, res) => {
                         )
                     ) * 100
                 )`
+
             );
 
 
         // =============================================
-        // Memory
+        // MEMORY
         // =============================================
 
         const memory =
             await prometheusService.queryPrometheus(
+
                 `100 * (
                     1 - (
                         windows_memory_available_bytes{
@@ -711,15 +880,17 @@ const getMonitoringSummary = async (req, res) => {
                         }
                     )
                 )`
+
             );
 
 
         // =============================================
-        // Disk
+        // DISK
         // =============================================
 
         const disk =
             await prometheusService.queryPrometheus(
+
                 `100 * (
                     1 - (
                         windows_logical_disk_free_bytes{
@@ -733,60 +904,73 @@ const getMonitoringSummary = async (req, res) => {
                         }
                     )
                 )`
+
             );
 
 
         // =============================================
-        // Network Receive
+        // NETWORK RECEIVE
         // =============================================
 
         const receive =
             await prometheusService.queryPrometheus(
+
                 `rate(
                     windows_net_bytes_received_total{
                         server="${server}"
                     }[2m]
                 )`
+
             );
 
 
         // =============================================
-        // Network Send
+        // NETWORK SEND
         // =============================================
 
         const send =
             await prometheusService.queryPrometheus(
+
                 `rate(
                     windows_net_bytes_sent_total{
                         server="${server}"
                     }[2m]
                 )`
+
             );
 
 
         // =============================================
-        // Uptime
+        // UPTIME
         // =============================================
 
         const uptime =
             await prometheusService.queryPrometheus(
+
                 `time() -
                 windows_system_boot_time_timestamp{
                     server="${server}"
                 }`
+
             );
 
 
         // =============================================
-        // Validate ALL metrics
+        // VALIDATE ALL METRICS
         // =============================================
 
         if (
+
             !cpu?.length ||
+
             !memory?.length ||
+
             !disk?.length ||
+
             !receive?.length ||
+
             !send?.length ||
+
             !uptime?.length ||
 
             !isValidPercentage(
@@ -812,11 +996,13 @@ const getMonitoringSummary = async (req, res) => {
             !isValidNonNegativeValue(
                 uptime[0]?.value?.[1]
             )
+
         ) {
 
             console.log(
                 `No valid monitoring data found for: ${server}`
             );
+
 
             return res.status(404).json({
 
@@ -835,7 +1021,7 @@ const getMonitoringSummary = async (req, res) => {
 
 
         // =============================================
-        // Convert uptime
+        // CONVERT UPTIME
         // =============================================
 
         const totalSeconds =
@@ -843,15 +1029,18 @@ const getMonitoringSummary = async (req, res) => {
                 uptime[0].value[1]
             );
 
+
         const days =
             Math.floor(
                 totalSeconds / 86400
             );
 
+
         const hours =
             Math.floor(
                 (totalSeconds % 86400) / 3600
             );
+
 
         const minutes =
             Math.floor(
@@ -860,7 +1049,7 @@ const getMonitoringSummary = async (req, res) => {
 
 
         // =============================================
-        // Convert Monitoring Values
+        // CONVERT MONITORING VALUES
         // =============================================
 
         const cpuValue =
@@ -870,12 +1059,14 @@ const getMonitoringSummary = async (req, res) => {
                 ).toFixed(2)
             );
 
+
         const memoryValue =
             Number(
                 parseFloat(
                     memory[0].value[1]
                 ).toFixed(2)
             );
+
 
         const diskValue =
             Number(
@@ -886,7 +1077,7 @@ const getMonitoringSummary = async (req, res) => {
 
 
         // =============================================
-        // Check CPU Alert
+        // CHECK CPU ALERT
         // =============================================
 
         await checkAndCreateAlert(
@@ -897,7 +1088,7 @@ const getMonitoringSummary = async (req, res) => {
 
 
         // =============================================
-        // Check Memory Alert
+        // CHECK MEMORY ALERT
         // =============================================
 
         await checkAndCreateAlert(
@@ -908,7 +1099,7 @@ const getMonitoringSummary = async (req, res) => {
 
 
         // =============================================
-        // Check Disk Alert
+        // CHECK DISK ALERT
         // =============================================
 
         await checkAndCreateAlert(
@@ -919,7 +1110,7 @@ const getMonitoringSummary = async (req, res) => {
 
 
         // =============================================
-        // Save Monitoring History
+        // SAVE MONITORING HISTORY
         // =============================================
 
         const networkReceiveValue =
@@ -929,6 +1120,7 @@ const getMonitoringSummary = async (req, res) => {
                 ).toFixed(2)
             );
 
+
         const networkSendValue =
             Number(
                 parseFloat(
@@ -937,27 +1129,25 @@ const getMonitoringSummary = async (req, res) => {
             );
 
 
-        await monitoringHistoryService.createMonitoringHistory({
-
-            serverName: server,
-
-            cpu: cpuValue,
-
-            memory: memoryValue,
-
-            disk: diskValue,
-
-            networkReceive:
-                networkReceiveValue,
-
-            networkSend:
-                networkSendValue,
-
-        });
+        try {
+    await monitoringHistoryService.createMonitoringHistory({
+        serverName: server,
+        cpu: cpuValue,
+        memory: memoryValue,
+        disk: diskValue,
+        networkReceive: networkReceiveValue,
+        networkSend: networkSendValue,
+    });
+} catch (historyError) {
+    console.error(
+        "Monitoring History Error:",
+        historyError.message
+    );
+}
 
 
         // =============================================
-        // Final Response
+        // FINAL RESPONSE
         // =============================================
 
         res.status(200).json({
@@ -1036,12 +1226,14 @@ const getMonitoringSummary = async (req, res) => {
 
         });
 
+
     } catch (error) {
 
         console.error(
             "Monitoring Summary Error:",
             error
         );
+
 
         res.status(500).json({
 
@@ -1060,7 +1252,7 @@ const getMonitoringSummary = async (req, res) => {
 
 
 // =====================================================
-// Export Controllers
+// EXPORT CONTROLLERS
 // =====================================================
 
 module.exports = {
