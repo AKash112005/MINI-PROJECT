@@ -1,6 +1,7 @@
 const prometheusService = require("../services/prometheus.service");
 const alertService = require("../services/alert.service");
 const monitoringHistoryService = require("../services/monitoringHistory.service");
+const Endpoint = require("../models/Endpoint");
 
 
 // =====================================================
@@ -8,6 +9,7 @@ const monitoringHistoryService = require("../services/monitoringHistory.service"
 // =====================================================
 
 const isValidPercentage = (value) => {
+
     const numericValue = Number(value);
 
     return (
@@ -19,12 +21,48 @@ const isValidPercentage = (value) => {
 
 
 const isValidNonNegativeValue = (value) => {
+
     const numericValue = Number(value);
 
     return (
         Number.isFinite(numericValue) &&
         numericValue >= 0
     );
+};
+
+
+// =====================================================
+// GET OPERATING SYSTEM FOR SERVER
+// =====================================================
+
+const getServerOperatingSystem = async (server, userId) => {
+
+    try {
+
+        const endpoint = await Endpoint.findOne({
+            serverName: server,
+            createdBy: userId,
+        });
+
+        if (!endpoint) {
+
+            // Preserve existing Windows behavior
+            // if endpoint information cannot be found.
+            return "Windows";
+        }
+
+        return endpoint.operatingSystem;
+
+    } catch (error) {
+
+        console.error(
+            "Operating System Lookup Error:",
+            error.message
+        );
+
+        // Preserve existing behavior.
+        return "Windows";
+    }
 };
 
 
@@ -61,9 +99,7 @@ const checkAndCreateAlert = async (
 
             message =
                 "CPU usage exceeded warning threshold";
-
         }
-
     }
 
 
@@ -86,9 +122,7 @@ const checkAndCreateAlert = async (
 
             message =
                 "Memory usage exceeded warning threshold";
-
         }
-
     }
 
 
@@ -111,9 +145,7 @@ const checkAndCreateAlert = async (
 
             message =
                 "Disk usage exceeded warning threshold";
-
         }
-
     }
 
 
@@ -129,7 +161,6 @@ const checkAndCreateAlert = async (
         );
 
         return null;
-
     }
 
 
@@ -177,14 +208,27 @@ const getCPUUsage = async (req, res) => {
                 data: null,
 
             });
-
         }
 
 
-        const cpu =
-            await prometheusService.queryPrometheus(
+        const operatingSystem =
+            await getServerOperatingSystem(
+                server,
+                req.user.id
+            );
 
-                `100 - (
+
+        let query;
+
+
+        // =============================================
+        // WINDOWS CPU
+        // =============================================
+
+        if (operatingSystem === "Windows") {
+
+            query = `
+                100 - (
                     avg by(instance) (
                         rate(
                             windows_cpu_time_total{
@@ -193,21 +237,46 @@ const getCPUUsage = async (req, res) => {
                             }[2m]
                         )
                     ) * 100
-                )`
+                )
+            `;
 
+        }
+
+        // =============================================
+        // LINUX CPU
+        // =============================================
+
+        else {
+
+            query = `
+                100 * (
+                    1 -
+                    avg(
+                        rate(
+                            node_cpu_seconds_total{
+                                mode="idle",
+                                server="${server}"
+                            }[2m]
+                        )
+                    )
+                )
+            `;
+
+        }
+
+
+        const cpu =
+            await prometheusService.queryPrometheus(
+                query
             );
 
 
         if (
-
             !cpu ||
-
             cpu.length === 0 ||
-
             !isValidPercentage(
                 cpu[0]?.value?.[1]
             )
-
         ) {
 
             return res.status(404).json({
@@ -220,7 +289,6 @@ const getCPUUsage = async (req, res) => {
                 data: null,
 
             });
-
         }
 
 
@@ -231,6 +299,8 @@ const getCPUUsage = async (req, res) => {
             metric: "CPU",
 
             server,
+
+            operatingSystem,
 
             usage:
                 Number(
@@ -265,7 +335,6 @@ const getCPUUsage = async (req, res) => {
             data: null,
 
         });
-
     }
 
 };
@@ -294,14 +363,27 @@ const getMemoryUsage = async (req, res) => {
                 data: null,
 
             });
-
         }
 
 
-        const memory =
-            await prometheusService.queryPrometheus(
+        const operatingSystem =
+            await getServerOperatingSystem(
+                server,
+                req.user.id
+            );
 
-                `100 * (
+
+        let query;
+
+
+        // =============================================
+        // WINDOWS MEMORY
+        // =============================================
+
+        if (operatingSystem === "Windows") {
+
+            query = `
+                100 * (
                     1 - (
                         windows_memory_available_bytes{
                             server="${server}"
@@ -311,21 +393,46 @@ const getMemoryUsage = async (req, res) => {
                             server="${server}"
                         }
                     )
-                )`
+                )
+            `;
 
+        }
+
+        // =============================================
+        // LINUX MEMORY
+        // =============================================
+
+        else {
+
+            query = `
+                100 * (
+                    1 - (
+                        node_memory_MemAvailable_bytes{
+                            server="${server}"
+                        }
+                        /
+                        node_memory_MemTotal_bytes{
+                            server="${server}"
+                        }
+                    )
+                )
+            `;
+
+        }
+
+
+        const memory =
+            await prometheusService.queryPrometheus(
+                query
             );
 
 
         if (
-
             !memory ||
-
             memory.length === 0 ||
-
             !isValidPercentage(
                 memory[0]?.value?.[1]
             )
-
         ) {
 
             return res.status(404).json({
@@ -338,12 +445,10 @@ const getMemoryUsage = async (req, res) => {
                 data: null,
 
             });
-
         }
 
 
-        const result =
-            memory[0];
+        const result = memory[0];
 
 
         res.status(200).json({
@@ -353,6 +458,8 @@ const getMemoryUsage = async (req, res) => {
             metric: "Memory",
 
             server,
+
+            operatingSystem,
 
             usage:
                 Number(
@@ -387,7 +494,6 @@ const getMemoryUsage = async (req, res) => {
             data: null,
 
         });
-
     }
 
 };
@@ -416,14 +522,30 @@ const getDiskUsage = async (req, res) => {
                 data: null,
 
             });
-
         }
 
 
-        const disk =
-            await prometheusService.queryPrometheus(
+        const operatingSystem =
+            await getServerOperatingSystem(
+                server,
+                req.user.id
+            );
 
-                `100 * (
+
+        let query;
+        let volume = null;
+
+
+        // =============================================
+        // WINDOWS DISK
+        // =============================================
+
+        if (operatingSystem === "Windows") {
+
+            volume = "C:";
+
+            query = `
+                100 * (
                     1 - (
                         windows_logical_disk_free_bytes{
                             volume="C:",
@@ -435,21 +557,52 @@ const getDiskUsage = async (req, res) => {
                             server="${server}"
                         }
                     )
-                )`
+                )
+            `;
 
+        }
+
+        // =============================================
+        // LINUX DISK
+        // =============================================
+
+        else {
+
+            volume = "/";
+
+            query = `
+                100 * (
+                    1 - (
+                        node_filesystem_avail_bytes{
+                            mountpoint="/",
+                            server="${server}",
+                            fstype!~"tmpfs|overlay|squashfs"
+                        }
+                        /
+                        node_filesystem_size_bytes{
+                            mountpoint="/",
+                            server="${server}",
+                            fstype!~"tmpfs|overlay|squashfs"
+                        }
+                    )
+                )
+            `;
+
+        }
+
+
+        const disk =
+            await prometheusService.queryPrometheus(
+                query
             );
 
 
         if (
-
             !disk ||
-
             disk.length === 0 ||
-
             !isValidPercentage(
                 disk[0]?.value?.[1]
             )
-
         ) {
 
             return res.status(404).json({
@@ -462,12 +615,10 @@ const getDiskUsage = async (req, res) => {
                 data: null,
 
             });
-
         }
 
 
-        const result =
-            disk[0];
+        const result = disk[0];
 
 
         res.status(200).json({
@@ -478,7 +629,9 @@ const getDiskUsage = async (req, res) => {
 
             server,
 
-            volume: "C:",
+            operatingSystem,
+
+            volume,
 
             usage:
                 Number(
@@ -513,7 +666,6 @@ const getDiskUsage = async (req, res) => {
             data: null,
 
         });
-
     }
 
 };
@@ -542,52 +694,98 @@ const getNetworkUsage = async (req, res) => {
                 data: null,
 
             });
+        }
+
+
+        const operatingSystem =
+            await getServerOperatingSystem(
+                server,
+                req.user.id
+            );
+
+
+        let receiveQuery;
+        let sendQuery;
+
+
+        // =============================================
+        // WINDOWS NETWORK
+        // =============================================
+
+        if (operatingSystem === "Windows") {
+
+            receiveQuery = `
+                rate(
+                    windows_net_bytes_received_total{
+                        server="${server}"
+                    }[2m]
+                )
+            `;
+
+            sendQuery = `
+                rate(
+                    windows_net_bytes_sent_total{
+                        server="${server}"
+                    }[2m]
+                )
+            `;
+
+        }
+
+        // =============================================
+        // LINUX NETWORK
+        // =============================================
+
+        else {
+
+            receiveQuery = `
+                sum(
+                    rate(
+                        node_network_receive_bytes_total{
+                            server="${server}",
+                            device!="lo"
+                        }[2m]
+                    )
+                )
+            `;
+
+            sendQuery = `
+                sum(
+                    rate(
+                        node_network_transmit_bytes_total{
+                            server="${server}",
+                            device!="lo"
+                        }[2m]
+                    )
+                )
+            `;
 
         }
 
 
         const receive =
             await prometheusService.queryPrometheus(
-
-                `rate(
-                    windows_net_bytes_received_total{
-                        server="${server}"
-                    }[2m]
-                )`
-
+                receiveQuery
             );
 
 
         const send =
             await prometheusService.queryPrometheus(
-
-                `rate(
-                    windows_net_bytes_sent_total{
-                        server="${server}"
-                    }[2m]
-                )`
-
+                sendQuery
             );
 
 
         if (
-
             !receive ||
-
             receive.length === 0 ||
-
             !send ||
-
             send.length === 0 ||
-
             !isValidNonNegativeValue(
                 receive[0]?.value?.[1]
             ) ||
-
             !isValidNonNegativeValue(
                 send[0]?.value?.[1]
             )
-
         ) {
 
             return res.status(404).json({
@@ -600,7 +798,6 @@ const getNetworkUsage = async (req, res) => {
                 data: null,
 
             });
-
         }
 
 
@@ -612,9 +809,15 @@ const getNetworkUsage = async (req, res) => {
 
             server,
 
+            operatingSystem,
+
             interface:
-                receive[0].metric.nic ||
-                "Network Interface",
+                operatingSystem === "Windows"
+                    ? (
+                        receive[0].metric.nic ||
+                        "Network Interface"
+                    )
+                    : "All Interfaces",
 
             receive:
                 Number(
@@ -657,7 +860,6 @@ const getNetworkUsage = async (req, res) => {
             data: null,
 
         });
-
     }
 
 };
@@ -686,31 +888,62 @@ const getUptime = async (req, res) => {
                 data: null,
 
             });
+        }
+
+
+        const operatingSystem =
+            await getServerOperatingSystem(
+                server,
+                req.user.id
+            );
+
+
+        let query;
+
+
+        // =============================================
+        // WINDOWS UPTIME
+        // =============================================
+
+        if (operatingSystem === "Windows") {
+
+            query = `
+                time() -
+                windows_system_boot_time_timestamp{
+                    server="${server}"
+                }
+            `;
+
+        }
+
+        // =============================================
+        // LINUX UPTIME
+        // =============================================
+
+        else {
+
+            query = `
+                time() -
+                node_boot_time_seconds{
+                    server="${server}"
+                }
+            `;
 
         }
 
 
         const uptime =
             await prometheusService.queryPrometheus(
-
-                `time() -
-                windows_system_boot_time_timestamp{
-                    server="${server}"
-                }`
-
+                query
             );
 
 
         if (
-
             !uptime ||
-
             uptime.length === 0 ||
-
             !isValidNonNegativeValue(
                 uptime[0]?.value?.[1]
             )
-
         ) {
 
             return res.status(404).json({
@@ -723,7 +956,6 @@ const getUptime = async (req, res) => {
                 data: null,
 
             });
-
         }
 
 
@@ -758,6 +990,8 @@ const getUptime = async (req, res) => {
             metric: "Uptime",
 
             server,
+
+            operatingSystem,
 
             uptime: {
 
@@ -798,7 +1032,6 @@ const getUptime = async (req, res) => {
             data: null,
 
         });
-
     }
 
 };
@@ -816,8 +1049,7 @@ const getMonitoringSummary = async (req, res) => {
         // GET SELECTED SERVER
         // =============================================
 
-        const { server } =
-            req.query;
+        const { server } = req.query;
 
 
         if (!server) {
@@ -832,7 +1064,6 @@ const getMonitoringSummary = async (req, res) => {
                 data: null,
 
             });
-
         }
 
 
@@ -842,13 +1073,41 @@ const getMonitoringSummary = async (req, res) => {
 
 
         // =============================================
-        // CPU
+        // GET OPERATING SYSTEM
         // =============================================
 
-        const cpu =
-            await prometheusService.queryPrometheus(
+        const operatingSystem =
+            await getServerOperatingSystem(
+                server,
+                req.user.id
+            );
 
-                `100 - (
+
+        console.log(
+            `Monitoring OS detected: ${operatingSystem}`
+        );
+
+
+        let cpuQuery;
+        let memoryQuery;
+        let diskQuery;
+        let receiveQuery;
+        let sendQuery;
+        let uptimeQuery;
+
+
+        // =================================================
+        // WINDOWS PROMQL
+        // =================================================
+
+        if (operatingSystem === "Windows") {
+
+            // =============================================
+            // CPU
+            // =============================================
+
+            cpuQuery = `
+                100 - (
                     avg by(instance) (
                         rate(
                             windows_cpu_time_total{
@@ -857,19 +1116,16 @@ const getMonitoringSummary = async (req, res) => {
                             }[2m]
                         )
                     ) * 100
-                )`
+                )
+            `;
 
-            );
 
+            // =============================================
+            // MEMORY
+            // =============================================
 
-        // =============================================
-        // MEMORY
-        // =============================================
-
-        const memory =
-            await prometheusService.queryPrometheus(
-
-                `100 * (
+            memoryQuery = `
+                100 * (
                     1 - (
                         windows_memory_available_bytes{
                             server="${server}"
@@ -879,19 +1135,16 @@ const getMonitoringSummary = async (req, res) => {
                             server="${server}"
                         }
                     )
-                )`
+                )
+            `;
 
-            );
 
+            // =============================================
+            // DISK
+            // =============================================
 
-        // =============================================
-        // DISK
-        // =============================================
-
-        const disk =
-            await prometheusService.queryPrometheus(
-
-                `100 * (
+            diskQuery = `
+                100 * (
                     1 - (
                         windows_logical_disk_free_bytes{
                             volume="C:",
@@ -903,74 +1156,213 @@ const getMonitoringSummary = async (req, res) => {
                             server="${server}"
                         }
                     )
-                )`
+                )
+            `;
 
-            );
 
+            // =============================================
+            // NETWORK RECEIVE
+            // =============================================
 
-        // =============================================
-        // NETWORK RECEIVE
-        // =============================================
-
-        const receive =
-            await prometheusService.queryPrometheus(
-
-                `rate(
+            receiveQuery = `
+                rate(
                     windows_net_bytes_received_total{
                         server="${server}"
                     }[2m]
-                )`
+                )
+            `;
 
-            );
 
+            // =============================================
+            // NETWORK SEND
+            // =============================================
 
-        // =============================================
-        // NETWORK SEND
-        // =============================================
-
-        const send =
-            await prometheusService.queryPrometheus(
-
-                `rate(
+            sendQuery = `
+                rate(
                     windows_net_bytes_sent_total{
                         server="${server}"
                     }[2m]
-                )`
+                )
+            `;
 
+
+            // =============================================
+            // UPTIME
+            // =============================================
+
+            uptimeQuery = `
+                time() -
+                windows_system_boot_time_timestamp{
+                    server="${server}"
+                }
+            `;
+
+        }
+
+
+        // =================================================
+        // LINUX PROMQL
+        // =================================================
+
+        else {
+
+            // =============================================
+            // CPU
+            // =============================================
+
+            cpuQuery = `
+                100 * (
+                    1 -
+                    avg(
+                        rate(
+                            node_cpu_seconds_total{
+                                mode="idle",
+                                server="${server}"
+                            }[2m]
+                        )
+                    )
+                )
+            `;
+
+
+            // =============================================
+            // MEMORY
+            // =============================================
+
+            memoryQuery = `
+                100 * (
+                    1 - (
+                        node_memory_MemAvailable_bytes{
+                            server="${server}"
+                        }
+                        /
+                        node_memory_MemTotal_bytes{
+                            server="${server}"
+                        }
+                    )
+                )
+            `;
+
+
+            // =============================================
+            // DISK
+            // =============================================
+
+            diskQuery = `
+                100 * (
+                    1 - (
+                        node_filesystem_avail_bytes{
+                            mountpoint="/",
+                            server="${server}",
+                            fstype!~"tmpfs|overlay|squashfs"
+                        }
+                        /
+                        node_filesystem_size_bytes{
+                            mountpoint="/",
+                            server="${server}",
+                            fstype!~"tmpfs|overlay|squashfs"
+                        }
+                    )
+                )
+            `;
+
+
+            // =============================================
+            // NETWORK RECEIVE
+            // =============================================
+
+            receiveQuery = `
+                sum(
+                    rate(
+                        node_network_receive_bytes_total{
+                            server="${server}",
+                            device!="lo"
+                        }[2m]
+                    )
+                )
+            `;
+
+
+            // =============================================
+            // NETWORK SEND
+            // =============================================
+
+            sendQuery = `
+                sum(
+                    rate(
+                        node_network_transmit_bytes_total{
+                            server="${server}",
+                            device!="lo"
+                        }[2m]
+                    )
+                )
+            `;
+
+
+            // =============================================
+            // UPTIME
+            // =============================================
+
+            uptimeQuery = `
+                time() -
+                node_boot_time_seconds{
+                    server="${server}"
+                }
+            `;
+
+        }
+
+
+        // =================================================
+        // EXECUTE PROMETHEUS QUERIES
+        // =================================================
+
+        const cpu =
+            await prometheusService.queryPrometheus(
+                cpuQuery
             );
 
 
-        // =============================================
-        // UPTIME
-        // =============================================
+        const memory =
+            await prometheusService.queryPrometheus(
+                memoryQuery
+            );
+
+
+        const disk =
+            await prometheusService.queryPrometheus(
+                diskQuery
+            );
+
+
+        const receive =
+            await prometheusService.queryPrometheus(
+                receiveQuery
+            );
+
+
+        const send =
+            await prometheusService.queryPrometheus(
+                sendQuery
+            );
+
 
         const uptime =
             await prometheusService.queryPrometheus(
-
-                `time() -
-                windows_system_boot_time_timestamp{
-                    server="${server}"
-                }`
-
+                uptimeQuery
             );
 
 
-        // =============================================
+        // =================================================
         // VALIDATE ALL METRICS
-        // =============================================
+        // =================================================
 
         if (
-
             !cpu?.length ||
-
             !memory?.length ||
-
             !disk?.length ||
-
             !receive?.length ||
-
             !send?.length ||
-
             !uptime?.length ||
 
             !isValidPercentage(
@@ -996,7 +1388,6 @@ const getMonitoringSummary = async (req, res) => {
             !isValidNonNegativeValue(
                 uptime[0]?.value?.[1]
             )
-
         ) {
 
             console.log(
@@ -1016,13 +1407,12 @@ const getMonitoringSummary = async (req, res) => {
                 data: null,
 
             });
-
         }
 
 
-        // =============================================
+        // =================================================
         // CONVERT UPTIME
-        // =============================================
+        // =================================================
 
         const totalSeconds =
             Number(
@@ -1048,9 +1438,9 @@ const getMonitoringSummary = async (req, res) => {
             );
 
 
-        // =============================================
+        // =================================================
         // CONVERT MONITORING VALUES
-        // =============================================
+        // =================================================
 
         const cpuValue =
             Number(
@@ -1076,43 +1466,6 @@ const getMonitoringSummary = async (req, res) => {
             );
 
 
-        // =============================================
-        // CHECK CPU ALERT
-        // =============================================
-
-        await checkAndCreateAlert(
-            server,
-            "CPU",
-            cpuValue
-        );
-
-
-        // =============================================
-        // CHECK MEMORY ALERT
-        // =============================================
-
-        await checkAndCreateAlert(
-            server,
-            "Memory",
-            memoryValue
-        );
-
-
-        // =============================================
-        // CHECK DISK ALERT
-        // =============================================
-
-        await checkAndCreateAlert(
-            server,
-            "Disk",
-            diskValue
-        );
-
-
-        // =============================================
-        // SAVE MONITORING HISTORY
-        // =============================================
-
         const networkReceiveValue =
             Number(
                 parseFloat(
@@ -1129,26 +1482,76 @@ const getMonitoringSummary = async (req, res) => {
             );
 
 
+        // =================================================
+        // CHECK CPU ALERT
+        // =================================================
+
+        await checkAndCreateAlert(
+            server,
+            "CPU",
+            cpuValue
+        );
+
+
+        // =================================================
+        // CHECK MEMORY ALERT
+        // =================================================
+
+        await checkAndCreateAlert(
+            server,
+            "Memory",
+            memoryValue
+        );
+
+
+        // =================================================
+        // CHECK DISK ALERT
+        // =================================================
+
+        await checkAndCreateAlert(
+            server,
+            "Disk",
+            diskValue
+        );
+
+
+        // =================================================
+        // SAVE MONITORING HISTORY
+        // =================================================
+
         try {
-    await monitoringHistoryService.createMonitoringHistory({
-        serverName: server,
-        cpu: cpuValue,
-        memory: memoryValue,
-        disk: diskValue,
-        networkReceive: networkReceiveValue,
-        networkSend: networkSendValue,
-    });
-} catch (historyError) {
-    console.error(
-        "Monitoring History Error:",
-        historyError.message
-    );
-}
+
+            await monitoringHistoryService.createMonitoringHistory({
+
+                serverName: server,
+
+                cpu: cpuValue,
+
+                memory: memoryValue,
+
+                disk: diskValue,
+
+                networkReceive:
+                    networkReceiveValue,
+
+                networkSend:
+                    networkSendValue,
+
+            });
+
+        } catch (historyError) {
+
+            console.error(
+                "Monitoring History Error:",
+                historyError.message
+            );
+
+        }
 
 
-        // =============================================
+        // =================================================
         // FINAL RESPONSE
-        // =============================================
+        // =================================================
 
         res.status(200).json({
 
@@ -1159,48 +1562,34 @@ const getMonitoringSummary = async (req, res) => {
 
             server,
 
+            operatingSystem,
+
             data: {
 
                 cpu:
-                    Number(
-                        parseFloat(
-                            cpu[0].value[1]
-                        ).toFixed(2)
-                    ),
+                    cpuValue,
 
                 memory:
-                    Number(
-                        parseFloat(
-                            memory[0].value[1]
-                        ).toFixed(2)
-                    ),
+                    memoryValue,
 
                 disk:
-                    Number(
-                        parseFloat(
-                            disk[0].value[1]
-                        ).toFixed(2)
-                    ),
+                    diskValue,
 
                 network: {
 
                     interface:
-                        receive[0].metric.nic ||
-                        "Network Interface",
+                        operatingSystem === "Windows"
+                            ? (
+                                receive[0].metric.nic ||
+                                "Network Interface"
+                            )
+                            : "All Interfaces",
 
                     receive:
-                        Number(
-                            parseFloat(
-                                receive[0].value[1]
-                            ).toFixed(2)
-                        ),
+                        networkReceiveValue,
 
                     send:
-                        Number(
-                            parseFloat(
-                                send[0].value[1]
-                            ).toFixed(2)
-                        ),
+                        networkSendValue,
 
                     unit:
                         "bytes/sec",
@@ -1245,7 +1634,6 @@ const getMonitoringSummary = async (req, res) => {
             data: null,
 
         });
-
     }
 
 };
