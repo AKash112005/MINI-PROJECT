@@ -517,12 +517,15 @@ function App() {
   // AUTHENTICATION STATE
   // ===================================================
 
+  // IMPORTANT:
+  // Always start with the Login Page when the
+  // application is opened/refreshed.
+  //
+  // The JWT will still be stored after successful login
+  // and used normally while the application is running.
+
   const [authenticated, setAuthenticated] =
-    useState(
-      Boolean(
-        localStorage.getItem("token")
-      )
-    );
+    useState(false);
 
 
   const [loggedInUser, setLoggedInUser] =
@@ -580,7 +583,66 @@ function App() {
     setAuthenticated(false);
 
   };
+// ===================================================
+// HANDLE EXPIRED / INVALID JWT
+// ===================================================
 
+useEffect(() => {
+
+  const interceptor =
+    axios.interceptors.response.use(
+      (response) => response,
+
+      (error) => {
+
+        if (
+          error.response?.status === 401 &&
+          authenticated
+        ) {
+
+          console.warn(
+            "JWT expired or invalid. Returning to login."
+          );
+
+          localStorage.removeItem(
+            "token"
+          );
+
+          localStorage.removeItem(
+            "user"
+          );
+
+          setLoggedInUser(null);
+
+          setAuthenticated(false);
+
+          setMetrics(null);
+
+          setHistory([]);
+
+          setAlerts([]);
+
+          setSelectedEndpoint(null);
+
+          setError("");
+
+        }
+
+        return Promise.reject(error);
+
+      }
+    );
+
+
+  return () => {
+
+    axios.interceptors.response.eject(
+      interceptor
+    );
+
+  };
+
+}, [authenticated]);
 
   // ===================================================
   // METRICS
@@ -1753,7 +1815,6 @@ function App() {
     };
 
   }, [authenticated]);
-
 
 
   // ===================================================
