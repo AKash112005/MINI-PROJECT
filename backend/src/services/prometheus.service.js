@@ -1,7 +1,6 @@
 const axios = require("axios");
 
-const PROMETHEUS_URL = "http://127.0.0.1:56101";
-
+const PROMETHEUS_URL = "http://127.0.0.1:9091";
 /*
  * ==========================================
  * Query Prometheus

@@ -1,6 +1,6 @@
 const endpointService = require("../services/endpoint.service");
 const prometheusService = require("../services/prometheus.service");
-
+const prometheusTargetService = require("../services/prometheusTarget.service");
 
 // =====================================================
 // Create Endpoint
@@ -10,24 +10,68 @@ const createEndpoint = async (req, res) => {
 
     try {
 
+        // ================================================
+        // 1. Create endpoint in MongoDB
+        // ================================================
+
         const endpoint =
             await endpointService.createEndpoint({
                 ...req.body,
                 createdBy: req.user.id,
             });
 
+
+        // ================================================
+        // 2. Get all endpoints for this user
+        // ================================================
+
+        const endpoints =
+            await endpointService.getAllEndpoints(
+                req.user.id
+            );
+
+
+        // ================================================
+        // 3. Update Prometheus dynamic targets
+        // ================================================
+
+        await prometheusTargetService.updatePrometheusTargets(
+            endpoints
+        );
+
+
+        // ================================================
+        // 4. Send response
+        // ================================================
+
         res.status(201).json({
+
             success: true,
-            message: "Endpoint created successfully.",
-            data: endpoint,
+
+            message:
+                "Endpoint created successfully.",
+
+            data:
+                endpoint,
+
         });
 
     } catch (error) {
 
+        console.error(
+            "Create Endpoint Error:",
+            error
+        );
+
         res.status(500).json({
+
             success: false,
-            message: error.message,
+
+            message:
+                error.message,
+
             data: null,
+
         });
 
     }
@@ -298,6 +342,22 @@ const deleteEndpoint = async (req, res) => {
         }
 
 
+        // =================================================
+        // Refresh Prometheus dynamic targets
+        // =================================================
+
+        const remainingEndpoints =
+            await endpointService.getAllEndpoints(
+                req.user.id
+            );
+
+
+        await prometheusTargetService
+            .updatePrometheusTargets(
+                remainingEndpoints
+            );
+
+
         res.status(200).json({
 
             success: true,
@@ -310,6 +370,12 @@ const deleteEndpoint = async (req, res) => {
         });
 
     } catch (error) {
+
+        console.error(
+            "Delete Endpoint Error:",
+            error.message
+        );
+
 
         res.status(500).json({
 
@@ -325,7 +391,6 @@ const deleteEndpoint = async (req, res) => {
     }
 
 };
-
 
 // =====================================================
 // Export Controllers

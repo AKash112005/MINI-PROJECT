@@ -1298,6 +1298,60 @@ useEffect(() => {
 
 
   // ===================================================
+  // ===================================================
+  // DELETE ENDPOINT
+  // ===================================================
+
+  const handleDeleteEndpoint = async (server) => {
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${server.serverName}"?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+
+      const token = localStorage.getItem("token");
+
+      await axios.delete(
+        `${ENDPOINTS_URL}/${server._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (selectedEndpoint?._id === server._id) {
+        setSelectedEndpoint(null);
+        setMetrics(null);
+        setHistory([]);
+        setAlerts([]);
+      }
+
+      await fetchEndpoints();
+
+    } catch (err) {
+
+      console.error(
+        "Delete Endpoint Error:",
+        err
+      );
+
+      alert(
+        err.response?.data?.message ||
+        err.message ||
+        "Unable to delete endpoint."
+      );
+
+    }
+
+  };
+
+
   // FETCH ENDPOINTS
   // ===================================================
 
@@ -4008,26 +4062,40 @@ useEffect(() => {
                       </div>
 
 
-                      <button
-                        className={`select-server-button ${
-                          isSelected
-                            ? "selected"
-                            : ""
-                        }`}
-                        onClick={() => {
+                      <div className="server-card-actions">
 
-                          setSelectedEndpoint(
-                            server
-                          );
+                        <button
+                          className={`select-server-button ${
+                            isSelected
+                              ? "selected"
+                              : ""
+                          }`}
+                          onClick={() => {
 
-                        }}
-                      >
+                            setSelectedEndpoint(
+                              server
+                            );
 
-                        {isSelected
-                          ? "✓ Monitoring Server"
-                          : "View Monitoring"}
+                          }}
+                        >
 
-                      </button>
+                          {isSelected
+                            ? "✓ Monitoring Server"
+                            : "View Monitoring"}
+
+                        </button>
+
+                        <button
+                          type="button"
+                          className="delete-server-button"
+                          onClick={() =>
+                            handleDeleteEndpoint(server)
+                          }
+                        >
+                          Delete
+                        </button>
+
+                      </div>
 
                     </div>
 
