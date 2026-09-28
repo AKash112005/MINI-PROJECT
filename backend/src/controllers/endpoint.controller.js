@@ -257,6 +257,10 @@ const updateEndpoint = async (req, res) => {
 
     try {
 
+        // ================================================
+        // 1. Update endpoint in MongoDB
+        // ================================================
+
         const endpoint =
             await endpointService.updateEndpoint(
                 req.params.id,
@@ -281,6 +285,29 @@ const updateEndpoint = async (req, res) => {
         }
 
 
+        // ================================================
+        // 2. Get all endpoints for this user
+        // ================================================
+
+        const endpoints =
+            await endpointService.getAllEndpoints(
+                req.user.id
+            );
+
+
+        // ================================================
+        // 3. Refresh Prometheus dynamic targets
+        // ================================================
+
+        await prometheusTargetService.updatePrometheusTargets(
+            endpoints
+        );
+
+
+        // ================================================
+        // 4. Send response
+        // ================================================
+
         res.status(200).json({
 
             success: true,
@@ -294,6 +321,12 @@ const updateEndpoint = async (req, res) => {
         });
 
     } catch (error) {
+
+        console.error(
+            "Update Endpoint Error:",
+            error
+        );
+
 
         res.status(500).json({
 
@@ -309,7 +342,6 @@ const updateEndpoint = async (req, res) => {
     }
 
 };
-
 
 // =====================================================
 // Delete Endpoint

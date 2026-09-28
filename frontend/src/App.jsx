@@ -692,6 +692,14 @@ useEffect(() => {
     useState(false);
 
 
+  const [showEditEndpoint, setShowEditEndpoint] =
+    useState(false);
+
+
+  const [editingEndpoint, setEditingEndpoint] =
+    useState(null);
+
+
   const [endpointForm, setEndpointForm] =
     useState({
       serverName: "",
@@ -1298,60 +1306,117 @@ useEffect(() => {
 
 
   // ===================================================
+  // EDIT ENDPOINT
   // ===================================================
-  // DELETE ENDPOINT
-  // ===================================================
 
-  const handleDeleteEndpoint = async (server) => {
+  const handleEditEndpoint = (server) => {
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${server.serverName}"?`
-    );
+    setEditingEndpoint(server);
 
-    if (!confirmed) {
+    setEndpointForm({
+      serverName: server.serverName || "",
+      ipAddress: server.ipAddress || "",
+      operatingSystem: server.operatingSystem || "Windows",
+      cloudProvider: server.cloudProvider || "Local",
+      region: server.region || "",
+      instanceType: server.instanceType || "",
+    });
+
+    setEndpointFormError("");
+    setShowAddEndpoint(false);
+    setShowEditEndpoint(true);
+
+  };
+
+
+  const handleUpdateEndpoint = async (event) => {
+
+    event.preventDefault();
+    setEndpointFormError("");
+
+    if (!editingEndpoint?._id) {
+      setEndpointFormError("Unable to identify the endpoint to update.");
+      return;
+    }
+
+    if (
+      !endpointForm.serverName.trim() ||
+      !endpointForm.ipAddress.trim() ||
+      !endpointForm.region.trim() ||
+      !endpointForm.instanceType.trim()
+    ) {
+      setEndpointFormError(
+        "Please complete all endpoint fields."
+      );
       return;
     }
 
     try {
 
-      const token = localStorage.getItem("token");
+      setEndpointFormLoading(true);
 
-      await axios.delete(
-        `${ENDPOINTS_URL}/${server._id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
+      const token =
+        localStorage.getItem("token");
+
+      const response =
+        await axios.put(
+          `${ENDPOINTS_URL}/${editingEndpoint._id}`,
+          {
+            serverName: endpointForm.serverName.trim(),
+            ipAddress: endpointForm.ipAddress.trim(),
+            operatingSystem: endpointForm.operatingSystem,
+            cloudProvider: endpointForm.cloudProvider,
+            region: endpointForm.region.trim(),
+            instanceType: endpointForm.instanceType.trim(),
           },
-        }
-      );
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
 
-      if (selectedEndpoint?._id === server._id) {
-        setSelectedEndpoint(null);
-        setMetrics(null);
-        setHistory([]);
-        setAlerts([]);
+      const updatedEndpoint =
+        response.data?.data;
+
+      if (!updatedEndpoint) {
+        throw new Error(
+          "Endpoint was updated but no endpoint data was returned."
+        );
       }
+
+      setShowEditEndpoint(false);
+      setEditingEndpoint(null);
+      setEndpointFormError("");
+
+      setSelectedEndpoint(updatedEndpoint);
 
       await fetchEndpoints();
 
     } catch (err) {
 
       console.error(
-        "Delete Endpoint Error:",
+        "Update Endpoint Error:",
         err
       );
 
-      alert(
+      setEndpointFormError(
         err.response?.data?.message ||
         err.message ||
-        "Unable to delete endpoint."
+        "Unable to update endpoint."
       );
+
+    } finally {
+
+      setEndpointFormLoading(false);
 
     }
 
   };
 
 
+  // ===================================================
   // FETCH ENDPOINTS
   // ===================================================
 
@@ -2391,7 +2456,7 @@ useEffect(() => {
           ADD ENDPOINT MODAL
       ================================================= */}
 
-      {showAddEndpoint && (
+      {(showAddEndpoint || showEditEndpoint) && (
 
         <div
           className="endpoint-modal-overlay"
@@ -2431,7 +2496,9 @@ useEffect(() => {
                 </h2>
 
                 <p>
-                  Register a server for CloudWatchX monitoring.
+                  {showEditEndpoint
+                    ? "Update the configuration of this monitoring endpoint."
+                    : "Register a server for CloudWatchX monitoring."}
                 </p>
 
               </div>
@@ -2444,6 +2511,8 @@ useEffect(() => {
                 onClick={() => {
 
                   setShowAddEndpoint(false);
+                  setShowEditEndpoint(false);
+                  setEditingEndpoint(null);
                   setEndpointFormError("");
 
                 }}
@@ -2457,7 +2526,11 @@ useEffect(() => {
 
             <form
               className="endpoint-form"
-              onSubmit={handleAddEndpoint}
+              onSubmit={
+                showEditEndpoint
+                  ? handleUpdateEndpoint
+                  : handleAddEndpoint
+              }
             >
 
               <div className="endpoint-form-grid">
@@ -2688,14 +2761,20 @@ useEffect(() => {
 
                     <>
                       <span className="endpoint-spinner"></span>
-                      Adding Endpoint...
+                      {showEditEndpoint
+                        ? "Updating Endpoint..."
+                        : "Adding Endpoint..."}
                     </>
 
                   ) : (
 
                     <>
-                      <span>+</span>
-                      Add Endpoint
+                      <span>
+                        {showEditEndpoint ? "✓" : "+"}
+                      </span>
+                      {showEditEndpoint
+                        ? "Update Endpoint"
+                        : "Add Endpoint"}
                     </>
 
                   )}
@@ -4087,12 +4166,12 @@ useEffect(() => {
 
                         <button
                           type="button"
-                          className="delete-server-button"
+                          className="edit-server-button"
                           onClick={() =>
-                            handleDeleteEndpoint(server)
+                            handleEditEndpoint(server)
                           }
                         >
-                          Delete
+                          Edit
                         </button>
 
                       </div>
