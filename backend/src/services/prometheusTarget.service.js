@@ -5,8 +5,6 @@ const CONFIG_MAP_NAME = "prometheus-targets";
 const TARGET_FILE_NAME = "targets.json";
 
 const kc = new k8s.KubeConfig();
-
-// Uses the same Minikube context/configuration as kubectl
 kc.loadFromDefault();
 
 const coreApi = kc.makeApiClient(k8s.CoreV1Api);
@@ -20,28 +18,53 @@ const buildTargets = (endpoints) => {
                 endpoint.operatingSystem
         )
         .map((endpoint) => {
-            const port =
-                endpoint.operatingSystem === "Windows"
-                    ? "9182"
-                    : "9100";
+
+            let target = endpoint.ipAddress.trim();
+
+            /*
+             * If the IP address already contains an exporter port,
+             * do not append another port.
+             */
+            if (
+                !target.includes(":") ||
+                (
+                    target.includes(":") &&
+                    !target.match(/:\d+$/)
+                )
+            ) {
+
+                const port =
+                    endpoint.operatingSystem === "Windows"
+                        ? "9182"
+                        : "9100";
+
+                target = `${target}:${port}`;
+            }
 
             return {
                 targets: [
-                    `${endpoint.ipAddress}:${port}`,
+                    target,
                 ],
                 labels: {
                     server: endpoint.serverName,
                 },
             };
+
         });
 };
 
 const updatePrometheusTargets = async (endpoints) => {
-    const targets = buildTargets(endpoints);
 
-    const targetsJson = JSON.stringify(targets, null, 2);
+    const targets =
+        buildTargets(endpoints);
 
-    // JSON Patch operation
+    const targetsJson =
+        JSON.stringify(
+            targets,
+            null,
+            2
+        );
+
     const patchBody = [
         {
             op: "replace",
