@@ -1309,6 +1309,57 @@ useEffect(() => {
   // EDIT ENDPOINT
   // ===================================================
 
+  const handleDeleteEndpoint = async (server) => {
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${server.serverName}"?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+
+      const token =
+        localStorage.getItem("token");
+
+      await axios.delete(
+        `${ENDPOINTS_URL}/${server._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (selectedEndpoint?._id === server._id) {
+        setSelectedEndpoint(null);
+        setMetrics(null);
+        setHistory([]);
+        setAlerts([]);
+      }
+
+      await fetchEndpoints();
+
+    } catch (err) {
+
+      console.error(
+        "Delete Endpoint Error:",
+        err
+      );
+
+      setError(
+        err.response?.data?.message ||
+        err.message ||
+        "Unable to delete endpoint."
+      );
+
+    }
+
+  };
+
+
   const handleEditEndpoint = (server) => {
 
     setEditingEndpoint(server);
@@ -4174,6 +4225,28 @@ useEffect(() => {
                           Edit
                         </button>
 
+                        <button
+                          type="button"
+                          className="delete-server-icon"
+                          title={`Delete ${server.serverName || "endpoint"}`}
+                          aria-label={`Delete ${server.serverName || "endpoint"}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteEndpoint(server);
+                          }}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <path d="M4 7h16" />
+                            <path d="M9 7V4h6v3" />
+                            <path d="M7 7l1 13h8l1-13" />
+                            <path d="M10 11v5" />
+                            <path d="M14 11v5" />
+                          </svg>
+                        </button>
+
                       </div>
 
                     </div>
@@ -4411,4 +4484,4 @@ useEffect(() => {
 }
 
 
-export default App;
+export default App;                         
