@@ -1,16 +1,34 @@
-# React + Vite
+# CloudWatchX frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React and Vite client for the CloudWatchX monitoring dashboard.
 
-Currently, two official plugins are available:
+## Local development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Install dependencies and start the development server:
 
-## React Compiler
+```sh
+npm install
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+When `VITE_API_BASE_URL` is unset during development, API requests use
+`http://localhost:5000`.
 
-## Expanding the ESLint configuration
+## Deploying the frontend to Vercel
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. Import the repository into Vercel.
+2. Set the project root directory to `frontend`.
+3. Vercel uses `vercel.json` to build with `npm run build` and publish `dist`.
+4. Set the Vercel environment variable `VITE_API_BASE_URL` to the public origin
+   of the deployed backend, for example `https://api.example.com` (no trailing
+   slash and no `/api` path).
+5. Redeploy after setting or changing the environment variable.
+
+The backend must be deployed and reachable over HTTPS for login, monitoring,
+and endpoint API requests to work from the hosted site. Configure the backend
+to allow browser requests from the Vercel site's origin. Prometheus must also
+be reachable by the backend; the frontend does not connect to Prometheus
+directly.
+
+Patch Management and Software Deployment currently use illustrative data and
+simulated actions. They do not scan endpoints or install patches/software.

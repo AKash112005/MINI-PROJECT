@@ -19,20 +19,25 @@ import "./App.css";
 // API CONFIGURATION
 // =====================================================
 
+const API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV ? "http://localhost:5000" : "")
+  ).replace(/\/+$/, "");
+
 const LOGIN_URL =
-  "http://localhost:5000/api/auth/login";
+  `${API_BASE_URL}/api/auth/login`;
 
 const API_URL =
-  "http://localhost:5000/api/monitoring/summary";
+  `${API_BASE_URL}/api/monitoring/summary`;
 
 const ENDPOINTS_URL =
-  "http://localhost:5000/api/endpoints";
+  `${API_BASE_URL}/api/endpoints`;
 
 const ALERTS_URL =
-  "http://localhost:5000/api/alerts";
+  `${API_BASE_URL}/api/alerts`;
 
 const HISTORY_URL =
-  "http://localhost:5000/api/monitoring-history";
+  `${API_BASE_URL}/api/monitoring-history`;
 
 
 // =====================================================
@@ -3276,11 +3281,6 @@ useEffect(() => {
         </section>
 
 
-        <PatchManagementDemo />
-
-        <SoftwareDeploymentDemo />
-
-
         {/* =================================================
             INFRASTRUCTURE KPI OVERVIEW
         ================================================= */}
@@ -4841,6 +4841,29 @@ useEffect(() => {
             </strong>
 
           </div>
+
+        </section>
+
+
+        <section className="operations-workspace">
+
+          <div className="operations-workspace-heading">
+            <div>
+              <span className="eyebrow">ENDPOINT LIFECYCLE</span>
+              <h2>Endpoint operations</h2>
+              <p>
+                Review update readiness and software rollout activity from one
+                place.
+              </p>
+            </div>
+            <span className="operations-workspace-count">
+              PATCHING <span>·</span> DEPLOYMENT
+            </span>
+          </div>
+
+          <PatchManagementDemo />
+
+          <SoftwareDeploymentDemo />
 
         </section>
 
