@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+import SoftwareDeploymentDemo from "./SoftwareDeploymentDemo";
 import "./App.css";
 
 
@@ -504,6 +505,348 @@ const formatAlertTime = (date) => {
   ).toLocaleString();
 
 };
+
+
+const initialPatchHosts = [
+  {
+    id: "host-01",
+    hostname: "prod-web-01",
+    operatingSystem: "Ubuntu 22.04 LTS",
+    environment: "Production",
+    pendingUpdates: 8,
+    criticalUpdates: 3,
+    approved: false,
+  },
+  {
+    id: "host-02",
+    hostname: "win-app-02",
+    operatingSystem: "Windows Server 2022",
+    environment: "Production",
+    pendingUpdates: 5,
+    criticalUpdates: 1,
+    approved: false,
+  },
+  {
+    id: "host-03",
+    hostname: "api-node-03",
+    operatingSystem: "Ubuntu 24.04 LTS",
+    environment: "Staging",
+    pendingUpdates: 2,
+    criticalUpdates: 0,
+    approved: false,
+  },
+  {
+    id: "host-04",
+    hostname: "dev-db-01",
+    operatingSystem: "Amazon Linux 2023",
+    environment: "Development",
+    pendingUpdates: 0,
+    criticalUpdates: 0,
+    approved: false,
+  },
+];
+
+
+function PatchManagementDemo() {
+
+  const [hosts, setHosts] =
+    useState(initialPatchHosts);
+
+  const [filter, setFilter] =
+    useState("All endpoints");
+
+  const [search, setSearch] =
+    useState("");
+
+  const [scannedAt, setScannedAt] =
+    useState(null);
+
+  const [notice, setNotice] =
+    useState("");
+
+  const [selectedHost, setSelectedHost] =
+    useState(null);
+
+
+  const pendingUpdates =
+    hosts.reduce(
+      (total, host) =>
+        total + (host.approved ? 0 : host.pendingUpdates),
+      0
+    );
+
+  const criticalUpdates =
+    hosts.reduce(
+      (total, host) =>
+        total + (host.approved ? 0 : host.criticalUpdates),
+      0
+    );
+
+  const endpointsNeedingUpdates =
+    hosts.filter(
+      (host) =>
+        host.pendingUpdates > 0 && !host.approved
+    ).length;
+
+  const filteredHosts =
+    hosts.filter((host) => {
+      const matchesSearch =
+        `${host.hostname} ${host.operatingSystem} ${host.environment}`
+          .toLowerCase()
+          .includes(search.trim().toLowerCase());
+
+      const matchesFilter =
+        filter === "All endpoints" ||
+        (filter === "Needs attention" &&
+          host.pendingUpdates > 0 &&
+          !host.approved) ||
+        (filter === "Compliant" &&
+          (host.pendingUpdates === 0 || host.approved));
+
+      return matchesSearch && matchesFilter;
+    });
+
+
+  const runDemoScan = () => {
+    setScannedAt(new Date());
+    setNotice("Demo scan complete. Sample patch data refreshed.");
+    setSelectedHost(null);
+  };
+
+
+  const approveDemoUpdates = (host) => {
+    setHosts((currentHosts) =>
+      currentHosts.map((currentHost) =>
+        currentHost.id === host.id
+          ? { ...currentHost, approved: true }
+          : currentHost
+      )
+    );
+    setSelectedHost(null);
+    setNotice(
+      `Updates for ${host.hostname} approved in this preview. No patches were installed.`
+    );
+  };
+
+
+  return (
+    <section
+      id="patch-management"
+      className="patch-management"
+      aria-labelledby="patch-management-title"
+    >
+      <div className="patch-page-heading">
+        <div>
+          <span className="patch-eyebrow">OPERATIONS / PATCH MANAGEMENT</span>
+          <h2 id="patch-management-title">Patch management</h2>
+          <p>
+            Review endpoint patch posture and prepare a controlled update rollout.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="patch-scan-button"
+          onClick={runDemoScan}
+        >
+          <span aria-hidden="true">↻</span>
+          Run preview scan
+        </button>
+      </div>
+
+      <div className="patch-demo-notice" role="note">
+        <span className="patch-demo-pill">PREVIEW</span>
+        <span>
+          Illustrative inventory only. Scans and approvals are simulated; no
+          endpoint is scanned and no patches are installed.
+        </span>
+      </div>
+
+      {notice && (
+        <div className="patch-action-notice" role="status">
+          <span aria-hidden="true">✓</span>
+          {notice}
+          <button
+            type="button"
+            onClick={() => setNotice("")}
+            aria-label="Dismiss message"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      <div className="patch-summary-grid">
+        <article className="patch-summary-card">
+          <span className="patch-summary-icon patch-icon-blue">UPD</span>
+          <div>
+            <span className="patch-summary-label">UPDATES PENDING</span>
+            <strong>{pendingUpdates}</strong>
+            <small>            Across listed endpoints</small>
+          </div>
+        </article>
+        <article className="patch-summary-card">
+          <span className="patch-summary-icon patch-icon-red">!</span>
+          <div>
+            <span className="patch-summary-label">CRITICAL UPDATES</span>
+            <strong>{criticalUpdates}</strong>
+            <small>Prioritized for review</small>
+          </div>
+        </article>
+        <article className="patch-summary-card">
+          <span className="patch-summary-icon patch-icon-amber">HOST</span>
+          <div>
+            <span className="patch-summary-label">NEEDING ATTENTION</span>
+            <strong>{endpointsNeedingUpdates}</strong>
+            <small>Demo endpoints</small>
+          </div>
+        </article>
+        <article className="patch-summary-card">
+          <span className="patch-summary-icon patch-icon-green">OK</span>
+          <div>
+            <span className="patch-summary-label">COMPLIANT</span>
+            <strong>{hosts.length - endpointsNeedingUpdates}</strong>
+            <small>            Including approved preview updates</small>
+          </div>
+        </article>
+      </div>
+
+      <div className="patch-table-card">
+        <div className="patch-table-heading">
+          <div>
+            <h3>Endpoint patch status</h3>
+            <p>
+              {scannedAt
+                ? `Last preview scan: ${scannedAt.toLocaleTimeString()}`
+                : "Illustrative inventory · run a preview scan to update the timestamp"}
+            </p>
+          </div>
+          <label className="patch-search">
+            <span aria-hidden="true">⌕</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search endpoints"
+              aria-label="Search endpoints"
+            />
+          </label>
+        </div>
+
+        <div className="patch-filters" aria-label="Filter endpoints">
+          {["All endpoints", "Needs attention", "Compliant"].map((option) => (
+            <button
+              type="button"
+              key={option}
+              className={filter === option ? "selected" : ""}
+              aria-pressed={filter === option}
+              onClick={() => setFilter(option)}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+
+        <div className="patch-table-scroll">
+          <table className="patch-table">
+            <thead>
+              <tr>
+                <th scope="col">Endpoint</th>
+                <th scope="col">Environment</th>
+                <th scope="col">Updates</th>
+                <th scope="col">Critical</th>
+                <th scope="col">Status</th>
+                <th scope="col"><span className="visually-hidden">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredHosts.map((host) => {
+                const isCompliant =
+                  host.pendingUpdates === 0 || host.approved;
+
+                return (
+                  <tr key={host.id}>
+                    <td>
+                      <strong className="patch-hostname">{host.hostname}</strong>
+                      <span className="patch-os">{host.operatingSystem}</span>
+                    </td>
+                    <td>{host.environment}</td>
+                    <td>{host.approved ? 0 : host.pendingUpdates}</td>
+                    <td>{host.approved ? 0 : host.criticalUpdates}</td>
+                    <td>
+                      <span
+                        className={`patch-status ${
+                          isCompliant ? "patch-status-ok" : "patch-status-pending"
+                        }`}
+                      >
+                        {host.approved
+                          ? "Approved · preview"
+                          : isCompliant
+                            ? "Compliant"
+                            : "Updates available"}
+                      </span>
+                    </td>
+                    <td>
+                      {host.pendingUpdates > 0 && !host.approved ? (
+                        <button
+                          type="button"
+                          className="patch-review-button"
+                          onClick={() => {
+                            setSelectedHost(host);
+                            setNotice("");
+                          }}
+                        >
+                          Review
+                        </button>
+                      ) : (
+                        <span className="patch-no-action">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredHosts.length === 0 && (
+                <tr>
+                  <td className="patch-empty-state" colSpan="6">
+                    No endpoints match this search.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {selectedHost && (
+          <div className="patch-review-panel" role="region" aria-live="polite">
+            <div>
+              <strong>Review updates for {selectedHost.hostname}</strong>
+              <p>
+                {selectedHost.pendingUpdates} sample updates, including{" "}
+                {selectedHost.criticalUpdates} critical. Approval only changes
+                this preview.
+              </p>
+            </div>
+            <div className="patch-review-actions">
+              <button
+                type="button"
+                className="patch-cancel-button"
+                onClick={() => setSelectedHost(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="patch-approve-button"
+                onClick={() => approveDemoUpdates(selectedHost)}
+              >
+                Approve in preview
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 
 // =====================================================
@@ -1923,6 +2266,8 @@ useEffect(() => {
 
     const sectionIds = [
       "overview",
+      "patch-management",
+      "software-deployment",
       "performance",
       "network",
       "alerts",
@@ -2225,6 +2570,43 @@ useEffect(() => {
           >
             <span className="sidebar-nav-icon">◒</span>
             <span>History</span>
+          </button>
+
+        </div>
+
+
+        <div className="sidebar-group">
+
+          <span className="sidebar-group-title">
+            OPERATIONS
+          </span>
+
+          <button
+            className={`sidebar-nav-item ${
+              activeSection === "patch-management"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              navigateToSection("patch-management")
+            }
+          >
+            <span className="sidebar-nav-icon">⬇</span>
+            <span>Patch Management</span>
+          </button>
+
+          <button
+            className={`sidebar-nav-item ${
+              activeSection === "software-deployment"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              navigateToSection("software-deployment")
+            }
+          >
+            <span className="sidebar-nav-icon">⇧</span>
+            <span>Software Deployment</span>
           </button>
 
         </div>
@@ -2892,6 +3274,11 @@ useEffect(() => {
           </div>
 
         </section>
+
+
+        <PatchManagementDemo />
+
+        <SoftwareDeploymentDemo />
 
 
         {/* =================================================
