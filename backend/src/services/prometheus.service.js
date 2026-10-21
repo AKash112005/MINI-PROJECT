@@ -1,22 +1,17 @@
 
 const axios = require("axios");
 
-<<<<<<< HEAD
 const PROMETHEUS_URL = (
     process.env.PROMETHEUS_URL ||
     "http://127.0.0.1:9091"
 ).replace(/\/+$/, "");
-=======
-const PROMETHEUS_URL =
-    process.env.PROMETHEUS_URL || "http://127.0.0.1:9091";
 
 const PROMETHEUS_TOKEN = process.env.PROMETHEUS_TOKEN;
 
-/*
- * ==========================================
- * Prometheus Request Configuration
- * ==========================================
- */
+// ==========================================
+// Prometheus Request Configuration
+// ==========================================
+
 const getPrometheusRequestConfig = (query) => ({
     params: {
         query,
@@ -29,12 +24,10 @@ const getPrometheusRequestConfig = (query) => ({
     timeout: 15000,
 });
 
->>>>>>> 7be56b333cd52b87ee1e3c9e98eeb362117ff226
-/*
- * ==========================================
- * Query Prometheus
- * ==========================================
- */
+// ==========================================
+// Query Prometheus
+// ==========================================
+
 const queryPrometheus = async (query) => {
     try {
         const response = await axios.get(
@@ -53,11 +46,10 @@ const queryPrometheus = async (query) => {
     }
 };
 
-/*
- * ==========================================
- * Query Prometheus For Specific Server
- * ==========================================
- */
+// ==========================================
+// Query Prometheus For Specific Server
+// ==========================================
+
 const queryPrometheusByServer = async (query, server) => {
     try {
         if (!server) {
@@ -82,18 +74,23 @@ const queryPrometheusByServer = async (query, server) => {
     }
 };
 
-/*
- * ==========================================
- * Check Monitoring Availability For Server
- * ==========================================
- */
+// ==========================================
+// Check Monitoring Availability For Server
+// ==========================================
+
 const checkServerAvailability = async (server) => {
     try {
         if (!server) {
             return false;
         }
 
-        const query = `up{server="${server}"}`;
+        // Escape special characters before using the label value.
+        const escapedServer = server
+            .replace(/\\/g, "\\\\")
+            .replace(/"/g, '\\"')
+            .replace(/\n/g, "\\n");
+
+        const query = `up{server="${escapedServer}"}`;
 
         const result = await queryPrometheus(query);
 
