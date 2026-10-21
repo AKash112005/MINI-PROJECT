@@ -26,9 +26,10 @@ When `VITE_API_BASE_URL` is unset during development, API requests use
 
 The backend must be deployed and reachable over HTTPS for login, monitoring,
 and endpoint API requests to work from the hosted site. Configure the backend
-to allow browser requests from the Vercel site's origin. Prometheus must also
-be reachable by the backend; the frontend does not connect to Prometheus
-directly.
+to allow browser requests from the Vercel site's origin. Set the backend's
+`PROMETHEUS_URL` environment variable to a Prometheus URL reachable by that
+backend; the frontend does not connect to Prometheus directly. Do not use a
+local machine's `localhost` URL for a separately hosted backend.
 
 Patch Management and Software Deployment currently use illustrative data and
 simulated actions. They do not scan endpoints or install patches/software.

@@ -1,4 +1,7 @@
 const k8s = require("@kubernetes/client-node");
+const fs = require("fs/promises");
+const path = require("path");
+const crypto = require("crypto");
 
 const NAMESPACE = "monitoring";
 const CONFIG_MAP_NAME = "prometheus-targets";
@@ -64,6 +67,34 @@ const updatePrometheusTargets = async (endpoints) => {
             null,
             2
         );
+
+    const targetsFile =
+        process.env.PROMETHEUS_TARGETS_FILE;
+
+    if (targetsFile) {
+        const directory =
+            path.dirname(targetsFile);
+
+        await fs.mkdir(directory, {
+            recursive: true,
+        });
+
+        const temporaryFile =
+            `${targetsFile}.${crypto.randomUUID()}.tmp`;
+
+        await fs.writeFile(
+            temporaryFile,
+            targetsJson,
+            "utf8"
+        );
+
+        await fs.rename(
+            temporaryFile,
+            targetsFile
+        );
+
+        return targets;
+    }
 
     const patchBody = [
         {
